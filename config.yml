@@ -1,0 +1,9 @@
+c++:
+  cxx_clang_path: /usr/bin/clang++
+  test_framework: gtest
+c:
+  c_clang_path: /usr/bin/clang
+
+project_path: /mnt/c/Users/larsv/Documents/GitHub/Goal-Oriented-Mutation-Testing/example-cpp
+test_executable: test_link
+debug: False

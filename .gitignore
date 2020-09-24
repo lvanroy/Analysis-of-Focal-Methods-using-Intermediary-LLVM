@@ -1,0 +1,8 @@
+example-cpp/.idea
+example-cpp/build
+example-cpp/cmake-build-debug
+.idea
+venv
+build
+Documentation
+graph
