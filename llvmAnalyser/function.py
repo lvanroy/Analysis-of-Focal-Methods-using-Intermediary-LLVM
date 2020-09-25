@@ -9,9 +9,6 @@ class FunctionHandler:
     # return a function object if the tokens define a function
     # return None if not
     def identify_function(self, tokens):
-        if tokens[0] != "define":
-            return None
-
         # specify the current token index
         i = 1
 

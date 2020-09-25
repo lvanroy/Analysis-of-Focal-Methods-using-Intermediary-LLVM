@@ -26,6 +26,9 @@ def is_calling_convention(token):
 def is_unnamed_addr(token):
     return token in {"unnamed_addr", "local_unnamed_addr"}
 
+def is_attribute(token):
+    return is_parameter_attribute(token) | is_function_attribute(token)
+
 
 def is_parameter_attribute(token):
     is_attr = token in {"zeroext", "signext", "inreg", "byval", "inalloca",
