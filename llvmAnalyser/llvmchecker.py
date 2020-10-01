@@ -26,8 +26,13 @@ def is_calling_convention(token):
 def is_unnamed_addr(token):
     return token in {"unnamed_addr", "local_unnamed_addr"}
 
+
 def is_attribute(token):
     return is_parameter_attribute(token) | is_function_attribute(token)
+
+
+def is_group_attribute(token):
+    return "#" in token
 
 
 def is_parameter_attribute(token):
@@ -68,3 +73,12 @@ def is_comdat(token):
 
 def is_metadata(token):
     return "!" in token
+
+
+def is_tail(token):
+    return token in {"tail", "musttail", "notail"}
+
+
+def is_fast_math_flag(token):
+    return token in {"nnan", "ninf", "nsz", "arcp", "contract",
+                     "afn", "reassoc", "fast"}

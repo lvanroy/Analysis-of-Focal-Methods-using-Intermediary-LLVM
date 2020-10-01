@@ -5,4 +5,4 @@ example-cpp/cmake-build-debug
 venv
 build
 Documentation
-graph
+plots

@@ -6,4 +6,5 @@ c:
 
 project_path: /mnt/c/Users/larsv/Documents/GitHub/Goal-Oriented-Mutation-Testing/example-cpp
 test_executable: test_link
-debug: False
+debug: True
+graph: False

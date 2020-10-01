@@ -10,7 +10,7 @@ class AttributeGroupHandler:
         group.set_id(tokens[1])
 
         i = 4
-        while tokens[i] != "}\n":
+        while tokens[i] != "}":
             if is_attribute(tokens[i]):
                 group.add_attribute(tokens[i])
             i += 1
