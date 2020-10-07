@@ -69,9 +69,9 @@ class LLVMAnalyser:
                 self.analyze_return()
             elif "=" in tokens and self.opened_function is not None:
                 self.analyze_assignment(tokens)
-            elif "call" in tokens and self.opened_function is not None:
+            if "call" in tokens and self.opened_function is not None:
                 self.analyze_call(tokens)
-            elif "store" in tokens and self.opened_function is not None:
+            if "store" in tokens and self.opened_function is not None:
                 self.analyze_store(tokens)
             elif tokens[0] == "}":
                 self.register_function_end()
@@ -99,6 +99,8 @@ class LLVMAnalyser:
         if self.opened_function not in self.top_graph_nodes:
             top_graph_node = self.top_graph.add_node(self.opened_function)
             self.top_graph_nodes[self.opened_function] = top_graph_node
+        if self.function_handler.is_startup_func(self.opened_function):
+            self.top_graph_nodes[self.opened_function].set_start()
 
     def analyze_attribute_group(self, tokens):
         self.attribute_group_handler.identify_attribute_groups(tokens)

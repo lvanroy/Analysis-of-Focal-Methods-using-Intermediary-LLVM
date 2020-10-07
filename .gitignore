@@ -1,8 +1,11 @@
 example-cpp/.idea
 example-cpp/build
 example-cpp/cmake-build-debug
+example-cpp/lib
 .idea
 venv
 build
+env
 Documentation
 plots
+temp

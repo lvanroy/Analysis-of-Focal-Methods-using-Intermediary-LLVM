@@ -16,9 +16,14 @@ config = load(open('config.yml').read(), Loader=Loader)
 def determine_executable_path():
     for root, dirs, files in walk(path.join("build")):
         for file in files:
-            if file.startswith("{}.ll".format(config["test_executable"])):
+            if file.startswith("test_link.ll"):
                 return path.join(getcwd(), path.join(root, file))
-    return None
+    return ""
+
+
+def get_libs(testing_framework):
+    if testing_framework == "gtest":
+        return ["../testing_frameworks/gtest/gtest-all.ll", "../testing_frameworks/gtest/gtest_main.ll"]
 
 
 print("[1/4]: Validating environment - started")
@@ -42,11 +47,16 @@ else:
     print("-- make found")
 
 if which("dot") is None:
-    print("Error: This tool requires graphviz to operate, please install make and try again.")
+    print("Error: This tool requires graphviz to operate, please install graphviz and try again.")
     exit(0)
 else:
     print("-- graphviz found")
 
+if which("llvm-link") is None:
+    print("Error: This tool requires llvm to operate, please install llvm and try again.")
+    exit(0)
+else:
+    print("-- llvm found")
 
 print("[1/4]: Validating environment - finished")
 
@@ -64,10 +74,18 @@ call(["cmake", "-DCMAKE_C_COMPILER={}".format(config['c']['c_clang_path']),
 print("-- cmake - finished")
 
 print("-- make - started")
-call(["cmake", "--build", ".", "--target", "llvm_dis"], cwd="./build")
+call(["cmake", "--build", ".", "--target", config["build_target"]], cwd="./build")
 print("-- make - finished")
+
+libs = get_libs(config["c++"]["test_framework"])
+arguments = ["llvm-link", determine_executable_path()]
+for lib in libs:
+    arguments.append(lib)
+arguments += ["-o", "link.ll"]
+call(arguments, cwd="./build")
+call(["llvm-dis", "link.ll", "-o", "link_ir.ll"], cwd="./build")
 
 print("[2/4]: building llvm - finished")
 print("[3/4]: llvm analysis - started")
 analyser = LLVMAnalyser()
-analyser.analyse(determine_executable_path())
+analyser.analyse("./build/link_ir.ll")

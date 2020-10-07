@@ -31,13 +31,15 @@ if (CMAKE_VERSION VERSION_LESS 2.8.11)
 endif()
 
 # Now simply link against gtest or gtest_main as needed.
-include_directories(../source)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/googletest-src/googletest/include)
-add_executable(test test.cpp ../source/add.cpp)
+add_executable(test test.cpp)
 target_link_libraries(test gtest_main)
 
 # specify linker language, required by llvmir cmake
 set_target_properties(test PROPERTIES LINKER_LANGUAGE CXX)
+set_target_properties(test PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
+
+# target_compile_options(test PUBLIC ${CMAKE_CXX_FLAGS} -flto)
 
 # create llvm target
 llvmir_attach_bc_target(test_bc test)

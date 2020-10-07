@@ -3,6 +3,7 @@ class Node:
         self.node_id = node_id
         self.node_name = node_name
         self.final = False
+        self.start = False
 
     def __str__(self):
         if self.final:
@@ -14,3 +15,9 @@ class Node:
 
     def set_final(self):
         self.final = True
+
+    def set_start(self):
+        self.start = True
+
+    def is_start(self):
+        return self.start

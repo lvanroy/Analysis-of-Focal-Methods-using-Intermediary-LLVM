@@ -5,6 +5,6 @@ c:
   c_clang_path: /usr/bin/clang
 
 project_path: /mnt/c/Users/larsv/Documents/GitHub/Goal-Oriented-Mutation-Testing/example-cpp
-test_executable: test_link
-debug: True
-graph: False
+build_target: llvm_dis
+debug: False
+graph: True

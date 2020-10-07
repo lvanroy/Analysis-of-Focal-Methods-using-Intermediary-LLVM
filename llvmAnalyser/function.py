@@ -194,6 +194,9 @@ class FunctionHandler:
     def get_function_memory(self, function_name):
         return self.functions[function_name].get_memory()
 
+    def is_startup_func(self, function_name):
+        return self.functions[function_name].section == "\".text.startup\""
+
     def __str__(self):
         result = "The following {} functions were found within the llvm code:\n".format(len(self.functions))
         for key in self.functions:
