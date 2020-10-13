@@ -23,7 +23,7 @@ def determine_executable_path():
 
 def get_libs(testing_framework):
     if testing_framework == "gtest":
-        return ["../testing_frameworks/gtest/gtest-all.ll", "../testing_frameworks/gtest/gtest_main.ll"]
+        return ["../testing_frameworks/gtest/gtest_main.ll"]
 
 
 print("[1/4]: Validating environment - started")
@@ -81,11 +81,12 @@ libs = get_libs(config["c++"]["test_framework"])
 arguments = ["llvm-link", determine_executable_path()]
 for lib in libs:
     arguments.append(lib)
-arguments += ["-o", "link.ll"]
+arguments += ["-o", "link.bc"]
 call(arguments, cwd="./build")
-call(["llvm-dis", "link.ll", "-o", "link_ir.ll"], cwd="./build")
+call(["llvm-dis", "link.bc", "-o", "link_ir.ll"], cwd="./build")
 
 print("[2/4]: building llvm - finished")
 print("[3/4]: llvm analysis - started")
 analyser = LLVMAnalyser()
 analyser.analyse("./build/link_ir.ll")
+print("[3/4]: llvm analysis - finished")

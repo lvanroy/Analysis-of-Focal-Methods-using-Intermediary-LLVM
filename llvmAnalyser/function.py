@@ -61,7 +61,7 @@ class FunctionHandler:
         func.set_return_type(ret_type)
 
         # set function name
-        new_tokens = tokens[0].split("(")
+        new_tokens = tokens[0].split("(", 1)
         tokens[0] = new_tokens[1]
         func.set_function_name(new_tokens[0])
 

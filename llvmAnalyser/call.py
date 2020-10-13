@@ -1,5 +1,6 @@
 from llvmAnalyser.llvmchecker import *
 from llvmAnalyser.function import Parameter as Argument
+from llvmAnalyser.types import get_type
 
 
 class CallAnalyzer:
@@ -7,72 +8,73 @@ class CallAnalyzer:
         pass
 
     @staticmethod
-    def analyze_call(tokens):
-        i = 0
+    def analyze_call(tokens: list):
         call = Call()
 
         # skip all initial tokens
-        while tokens[i] != "call":
-            i += 1
+        while tokens[0] != "call":
+            tokens.pop(0)
 
-        i += 1
+        tokens.pop(0)
 
         # check if there are fast-math flags
-        while is_fast_math_flag(tokens[i]):
-            i += 1
+        while is_fast_math_flag(tokens[0]):
+            tokens.pop(0)
 
         # check if there is a cconv field
-        if is_calling_convention(tokens[i]):
-            i += 1
+        if is_calling_convention(tokens[0]):
+            tokens.pop(0)
 
         # check if there are parameter attributes
-        while is_parameter_attribute(tokens[i]):
-            i += 1
+        while is_parameter_attribute(tokens[0]):
+            tokens.pop(0)
 
         # skip the return type
-        i += 1
-        if tokens[i] in {"()", "()*"}:
-            i += 1
+        temp_type, tokens = get_type(tokens)
+
+        # skip potential redundant tokens
+        while tokens[0].count("(") == 0:
+            tokens.pop(0)
 
         # read the function name
-        temp = tokens[i].split("(")
-        tokens[i] = temp[0]
-        tokens.insert(i + 1, temp[1])
+        temp = tokens[0].split("(", 1)
+        tokens[0] = temp[0]
+        tokens.insert(1, temp[1])
 
-        call.set_function_name(tokens[i])
-        i += 1
+        call.set_function_name(tokens[0])
+        tokens.pop(0)
 
         # read the argument list
-        while "(" in tokens[i] or ")" not in tokens[i]:
+        while "(" in tokens[0] or ")" not in tokens[0]:
             argument = Argument()
 
             # read argument type
-            if tokens[i + 1] in {"()", "()*"}:
-                argument.set_parameter_type("{} {}".format(tokens[i], tokens[i + 1]))
-                i += 2
+            if tokens[1] in {"()", "()*"}:
+                argument.set_parameter_type("{} {}".format(tokens[0], tokens[1]))
+                tokens.pop(0)
             else:
-                argument.set_parameter_type(tokens[i])
-                i += 1
+                argument.set_parameter_type(tokens[0])
+            tokens.pop(0)
 
             # read potential parameter attributes
-            while is_parameter_attribute(tokens[i]):
-                argument.add_parameter_attribute(tokens[i])
-                i += 1
+            while is_parameter_attribute(tokens[0]):
+                argument.add_parameter_attribute(tokens[0])
+                tokens.pop(0)
 
             # read register
-            argument.set_register(tokens[i].replace(")", "").replace(",", ""))
+            argument.set_register(tokens[0].replace(")", "").replace(",", ""))
 
             call.add_argument(argument)
 
-        i += 1
+        tokens.pop(0)
 
-        if i < len(tokens) and is_group_attribute(tokens[i]):
-            call.set_group_function_attribute(tokens[i])
-            i += 1
+        if tokens and is_group_attribute(tokens[0]):
+            call.set_group_function_attribute(tokens[0])
+            tokens.pop(0)
         else:
-            while i < len(tokens) and is_function_attribute(tokens[i]):
-                call.add_function_attribute(tokens[i])
-                i += 1
+            while tokens and is_function_attribute(tokens[0]):
+                call.add_function_attribute(tokens[0])
+                tokens.pop(0)
 
         return call
 

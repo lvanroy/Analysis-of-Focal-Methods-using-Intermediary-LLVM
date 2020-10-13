@@ -1,15 +1,19 @@
 from llvmAnalyser.types import get_type
 
 
-class StoreAnalyzer:
+class LoadAnalyzer:
     def __init__(self):
         pass
 
     @staticmethod
-    def analyzer_store(tokens):
-        store = Store()
+    def analyzer_load(tokens):
+        load = Load()
 
-        # pop the store instruction
+        # pop the assignment instruction
+        while tokens[0] != "load":
+            tokens.pop(0)
+
+        # pop the load instruction
         tokens.pop(0)
 
         # check for atomic
@@ -23,30 +27,24 @@ class StoreAnalyzer:
         # skip type
         _, tokens = get_type(tokens)
 
-        store.set_value(tokens[0].replace(",", ""))
-        tokens.pop(0)
+        # check for ,
+        if tokens[0] == ",":
+            tokens.pop(0)
 
         # skip type
         _, tokens = get_type(tokens)
 
-        store.set_register(tokens[0].replace(",", ""))
+        load.set_value(tokens[0].replace(",", ""))
 
-        return store
+        return load
 
 
-class Store:
+class Load:
     def __init__(self):
         self.value = None
-        self.register = None
 
     def set_value(self, value):
         self.value = value
 
-    def set_register(self, register):
-        self.register = register
-
     def get_value(self):
         return self.value
-
-    def get_register(self):
-        return self.register

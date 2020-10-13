@@ -3,14 +3,20 @@ from llvmAnalyser.function import FunctionHandler
 from llvmAnalyser.attributes import AttributeGroupHandler
 from llvmAnalyser.call import CallAnalyzer
 from llvmAnalyser.store import StoreAnalyzer
+from llvmAnalyser.load import LoadAnalyzer
+from llvmAnalyser.br import BrAnalyzer
+from llvmAnalyser.invoke import InvokeAnalyzer
+from llvmAnalyser.switch import SwitchAnalyzer
 from llvmAnalyser.gtest import Gtest
-from llvmAnalyser.types import get_array_type
 from yaml import load
+import re
 
 try:
     from yaml import CLoader as Loader
 except ImportError:
     from yaml import Loader
+
+block_start_format = re.compile(r'[0-9]*:')
 
 
 # test_identifier must be a class that contains a identify test function member
@@ -32,6 +38,10 @@ class LLVMAnalyser:
         self.function_handler = FunctionHandler()
         self.call_analyzer = CallAnalyzer()
         self.store_analyzer = StoreAnalyzer()
+        self.load_analyzer = LoadAnalyzer()
+        self.br_analyzer = BrAnalyzer()
+        self.invoke_analyzer = InvokeAnalyzer()
+        self.switch_analyzer = SwitchAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -39,8 +49,9 @@ class LLVMAnalyser:
         self.top_graph_nodes = dict()
 
         # keep track of the nodes that are added to the graphs, so that new nodes can be connected to the
-        # previous ones in the chain
-        self.node_stack = list()
+        # previous ones in the chain, the node stack is a dict where the keys are the blocks,
+        # and the values the stacks for each block
+        self.node_stack = dict()
 
         # keep track of which function is opened, to further complete the graph related to this function
         self.opened_function = None
@@ -55,67 +66,123 @@ class LLVMAnalyser:
         lines = f.readlines()
         f.close()
 
-        for line in lines:
-            tokens = list(filter(None, line.replace("\t", "").replace("\n", "").split(" ")))
+        while len(lines) != 0:
+            tokens = list(filter(None, lines[0].replace("\t", "").replace("\n", "").split(";")[0].split(" ")))
 
             if len(tokens) == 0:
+                lines.pop(0)
                 continue
 
+            # register assignment
+            if "=" in tokens and self.opened_function is not None:
+                self.analyze_assignment(tokens)
+
+            # register new function definition
             if tokens[0] == "define":
                 self.analyze_define(tokens)
+
+            # register attribute group
             elif tokens[0] == "attributes":
                 self.analyze_attribute_group(tokens)
+
+            # register return statement
             elif tokens[0] == "ret":
                 self.analyze_return()
-            elif "=" in tokens and self.opened_function is not None:
-                self.analyze_assignment(tokens)
-            if "call" in tokens and self.opened_function is not None:
+
+            # register function call
+            elif "call" in tokens and self.opened_function is not None:
                 self.analyze_call(tokens)
-            if "store" in tokens and self.opened_function is not None:
+
+            # register store statement
+            elif "store" in tokens and self.opened_function is not None:
                 self.analyze_store(tokens)
+
+            elif "load" in tokens and self.opened_function is not None:
+                self.analyze_load(tokens)
+
+            # register branch statement
+            elif "br" in tokens and self.opened_function is not None:
+                self.analyze_br(tokens)
+
+            # register invoke statement
+            elif "invoke" in tokens and self.opened_function is not None:
+                tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
+                lines.pop(1)
+                self.analyze_invoke(tokens)
+
+            # register switch statement
+            elif "switch" in tokens and self.opened_function is not None:
+                for _ in range(3):
+                    tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
+                    lines.pop(1)
+                self.analyze_switch(tokens)
+
+            # register new code block
+            elif block_start_format.match(tokens[0]) and self.opened_function is not None:
+                opened_block = "{}:%{}".format(self.opened_function, tokens[0].split(":")[0])
+                self.node_stack[self.opened_function].append(self.get_first_node_of_block(opened_block))
+
+            # register alloca statement
+            elif "alloca" in tokens:
+                self.assignee = None
+                lines.pop(0)
+                continue
+
+            # register end of function definition
             elif tokens[0] == "}":
                 self.register_function_end()
-            elif self.opened_function is not None:
-                # print(tokens)
-                self.node_stack.append(self.graphs[self.opened_function].add_node(tokens[0]))
-                self.graphs[self.opened_function].add_edge(self.node_stack[-2], self.node_stack[-1])
 
-            self.assignee = None
+            # register unregistered line
+            # elif self.opened_block is not None:
+                # prev_node = self.node_stack[self.opened_block][-1]
+                # new_node = self.add_node(tokens[0])
+                # self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
-        if self.config["debug"]:
-            print(self.function_handler)
-        # print(self.attribute_group_handler)
+            if self.assignee is not None:
+                if self.opened_function is not None:
+                    new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
+                    self.node_stack[self.opened_function][-1].set_name(new_name)
+                self.assignee = None
+
+            lines.pop(0)
 
         if self.config["graph"]:
-            # for graph in self.graphs:
-            # self.graphs[graph].export_graph(graph)
             self.top_graph.export_graph("top_level_graph")
+            for graph in self.graphs:
+                if self.graphs[graph].is_test_func():
+                    self.graphs[graph].export_graph(graph)
 
     def analyze_define(self, tokens):
         self.opened_function = self.function_handler.identify_function(tokens)
         self.opened_function_memory = self.function_handler.get_function_memory(self.opened_function)
         self.graphs[self.opened_function] = Graph()
-        self.node_stack.append(self.graphs[self.opened_function].add_node(self.opened_function))
+        self.node_stack[self.opened_function] = list()
+        new_node = self.add_node(self.opened_function)
         if self.opened_function not in self.top_graph_nodes:
             top_graph_node = self.top_graph.add_node(self.opened_function)
             self.top_graph_nodes[self.opened_function] = top_graph_node
-        if self.function_handler.is_startup_func(self.opened_function):
-            self.top_graph_nodes[self.opened_function].set_start()
+        if self.test_identifier.identify_test_function(self.opened_function):
+            self.top_graph_nodes[self.opened_function].set_test()
+            self.graphs[self.opened_function].set_test_func()
+            new_node.set_test()
 
     def analyze_attribute_group(self, tokens):
         self.attribute_group_handler.identify_attribute_groups(tokens)
 
     def analyze_return(self):
-        self.node_stack.append(self.graphs[self.opened_function].add_final_node("ret"))
-        self.graphs[self.opened_function].add_edge(self.node_stack[-2], self.node_stack[-1])
+        prev_node = self.node_stack[self.opened_function][-1]
+        new_node = self.add_node("ret")
+        new_node.set_final()
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_call(self, tokens):
         call = self.call_analyzer.analyze_call(tokens)
         function_name = call.function_name
         function_call = "call {}".format(function_name)
 
-        self.node_stack.append(self.graphs[self.opened_function].add_node(function_call))
-        self.graphs[self.opened_function].add_edge(self.node_stack[-2], self.node_stack[-1])
+        prev_node = self.node_stack[self.opened_function][-1]
+        new_node = self.add_node(function_call)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
         if function_name in self.top_graph_nodes:
             final_node = self.top_graph_nodes[function_name]
         else:
@@ -124,21 +191,86 @@ class LLVMAnalyser:
         first_node = self.top_graph_nodes[self.opened_function]
         self.top_graph.add_edge(first_node, final_node)
 
-        if self.assignee is not None:
-            self.assignee.set_value(call)
-
     def analyze_store(self, tokens):
-        self.store_analyzer.analyzer_store(tokens, self.opened_function_memory)
+        store = self.store_analyzer.analyzer_store(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
 
-    # def analyze_alloca(self, tokens):
-    # self.alloca_analyzer.analyze_alloca_instruction(tokens)
+        new_node = self.add_node("{} = {}".format(store.get_register(), store.get_value()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_load(self, tokens):
+        load_instruction = self.load_analyzer.analyzer_load(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node(load_instruction.get_value())
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_br(self, tokens):
+        br = self.br_analyzer.analyze_br(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("br")
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+        block_name = "{}:{}".format(self.opened_function, br.get_label1())
+        first_branch = self.get_first_node_of_block(block_name)
+        self.graphs[self.opened_function].add_edge(new_node, first_branch)
+
+        if br.get_label2() is not None:
+            block_name = "{}:{}".format(self.opened_function, br.get_label2())
+            second_branch = self.get_first_node_of_block(block_name)
+            self.graphs[self.opened_function].add_edge(new_node, second_branch)
+
+    def analyze_invoke(self, tokens):
+        invoke = self.invoke_analyzer.analyze_invoke(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node(invoke.get_func())
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+        block_name = "{}:{}".format(self.opened_function, invoke.get_normal())
+        normal_node = self.get_first_node_of_block(block_name)
+        self.graphs[self.opened_function].add_edge(new_node, normal_node, "normal")
+
+        block_name = "{}:{}".format(self.opened_function, invoke.get_exception())
+        exception_node = self.get_first_node_of_block(block_name)
+        self.graphs[self.opened_function].add_edge(new_node, exception_node, "exception")
+
+    def analyze_switch(self, tokens):
+        switch = self.switch_analyzer.analyze_switch(tokens)
+        print(switch)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("switch")
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+        block_name = "{}:{}".format(self.opened_function, switch.get_default())
+        def_node = self.get_first_node_of_block(block_name)
+        self.graphs[self.opened_function].add_edge(new_node, def_node, "default")
+
+        for branch in switch.get_branches():
+            block_name = "{}:{}".format(self.opened_function, branch.get_destination())
+            branch_node = self.get_first_node_of_block(block_name)
+            self.graphs[self.opened_function].add_edge(new_node, branch_node, "= {}".format(branch.get_condition()))
 
     def analyze_assignment(self, tokens):
-        self.assignee = self.opened_function_memory.get_register_object(tokens[0])
+        self.assignee = tokens[0]
 
     def register_function_end(self):
-        # print(self.opened_function)
-        # print(self.opened_function_memory)
-        self.opened_function = None
         self.opened_function_memory = None
-        self.node_stack = list()
+        self.opened_function = None
+
+    def get_first_node_of_block(self, block_name):
+        start = self.graphs[self.opened_function].get_start_of_block(block_name.split(":")[1])
+        if start is not None:
+            return start
+        else:
+            self.node_stack[block_name] = list()
+            new_node = self.add_node(block_name.split(":")[1])
+            self.graphs[self.opened_function].register_start_of_block(block_name.split(":")[1])
+            return new_node
+
+    def add_node(self, node_name):
+        new_node = self.graphs[self.opened_function].add_node(node_name)
+        self.node_stack[self.opened_function].append(new_node)
+        return new_node

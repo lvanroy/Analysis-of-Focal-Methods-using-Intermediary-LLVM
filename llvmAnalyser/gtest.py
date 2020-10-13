@@ -4,7 +4,7 @@ class Gtest:
 
     @staticmethod
     def identify_test_function(line):
-        if "type { %\"class.testing::Test\" }" in line:
-            return line.split(" = ")[0].split("class.")[1]
+        if "TestBodyEv" in line:
+            return True
         else:
-            return None
+            return False
