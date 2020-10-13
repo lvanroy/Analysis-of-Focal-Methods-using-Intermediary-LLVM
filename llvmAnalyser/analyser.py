@@ -7,6 +7,7 @@ from llvmAnalyser.load import LoadAnalyzer
 from llvmAnalyser.br import BrAnalyzer
 from llvmAnalyser.invoke import InvokeAnalyzer
 from llvmAnalyser.switch import SwitchAnalyzer
+from llvmAnalyser.insertvalue import InsertvalueAnalyzer
 from llvmAnalyser.gtest import Gtest
 from yaml import load
 import re
@@ -42,6 +43,7 @@ class LLVMAnalyser:
         self.br_analyzer = BrAnalyzer()
         self.invoke_analyzer = InvokeAnalyzer()
         self.switch_analyzer = SwitchAnalyzer()
+        self.insertvalue_analyzer = InsertvalueAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -128,6 +130,10 @@ class LLVMAnalyser:
                 lines.pop(0)
                 continue
 
+            # register instervalue statement
+            elif "insertvalue" in tokens:
+                self.analyze_insertvalue(tokens)
+
             # register end of function definition
             elif tokens[0] == "}":
                 self.register_function_end()
@@ -137,6 +143,10 @@ class LLVMAnalyser:
                 # prev_node = self.node_stack[self.opened_block][-1]
                 # new_node = self.add_node(tokens[0])
                 # self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+            elif self.opened_function is not None:
+                print("Error: unregistered instruction!")
+                print(tokens)
 
             if self.assignee is not None:
                 if self.opened_function is not None:
@@ -192,14 +202,14 @@ class LLVMAnalyser:
         self.top_graph.add_edge(first_node, final_node)
 
     def analyze_store(self, tokens):
-        store = self.store_analyzer.analyzer_store(tokens)
+        store = self.store_analyzer.analyze_store(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("{} = {}".format(store.get_register(), store.get_value()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_load(self, tokens):
-        load_instruction = self.load_analyzer.analyzer_load(tokens)
+        load_instruction = self.load_analyzer.analyze_load(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node(load_instruction.get_value())
@@ -238,7 +248,6 @@ class LLVMAnalyser:
 
     def analyze_switch(self, tokens):
         switch = self.switch_analyzer.analyze_switch(tokens)
-        print(switch)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("switch")
@@ -252,6 +261,20 @@ class LLVMAnalyser:
             block_name = "{}:{}".format(self.opened_function, branch.get_destination())
             branch_node = self.get_first_node_of_block(block_name)
             self.graphs[self.opened_function].add_edge(new_node, branch_node, "= {}".format(branch.get_condition()))
+
+    def analyze_insertvalue(self, tokens):
+        insertvalue = self.insertvalue_analyzer.analyze_insertvalue(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        if insertvalue.get_original() != "undef":
+            node_name = "insert {} in {} at index ".format(insertvalue.get_insert_value(), insertvalue.get_original())
+        else:
+            node_name = "insert {} in new object of type {} at index ".format(insertvalue.get_insert_value(),
+                                                                              insertvalue.get_object_type())
+        for index in insertvalue.get_indicies():
+            node_name += "{}, ".format(index)
+        new_node = self.add_node(node_name[:-2])
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_assignment(self, tokens):
         self.assignee = tokens[0]

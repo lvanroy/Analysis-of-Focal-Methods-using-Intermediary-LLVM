@@ -6,7 +6,7 @@ class StoreAnalyzer:
         pass
 
     @staticmethod
-    def analyzer_store(tokens):
+    def analyze_store(tokens):
         store = Store()
 
         # pop the store instruction

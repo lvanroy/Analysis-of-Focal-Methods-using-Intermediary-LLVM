@@ -6,7 +6,7 @@ class LoadAnalyzer:
         pass
 
     @staticmethod
-    def analyzer_load(tokens):
+    def analyze_load(tokens):
         load = Load()
 
         # pop the assignment instruction

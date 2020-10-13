@@ -45,8 +45,8 @@ class Graph:
 
         if key not in self.edges:
             if start_node not in self.needed_nodes:
-                self.needed_nodes.appenself.neededd(start_node)
-            if end_node not in _nodes:
+                self.needed_nodes.append(start_node)
+            if end_node not in self.needed_nodes:
                 self.needed_nodes.append(end_node)
             self.edges[key] = Edge(start_node, end_node, label)
         return self.edges[key]
