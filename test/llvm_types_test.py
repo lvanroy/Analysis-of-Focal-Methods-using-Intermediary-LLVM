@@ -1,5 +1,5 @@
 import unittest
-from llvmAnalyser.types import get_struct_type, get_array_type, get_vector_type, get_type, check_for_pointer_type
+from llvmAnalyser.types import *
 
 
 class TestLLVMTypes(unittest.TestCase):
@@ -91,3 +91,5 @@ class TestLLVMTypes(unittest.TestCase):
         self.assertEqual(get_type(["i32"])[0], "i32")
         self.assertEqual(get_type(["void"])[0], "void")
         self.assertEqual(get_type(["half", "test"])[0], "half")
+        self.assertEqual(get_type(["@test<i32>"])[0], "@test<i32>")
+        self.assertEqual(get_type(["@test<4", "x", "6>"])[0], "@test<4 x 6>")
