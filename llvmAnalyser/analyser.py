@@ -140,15 +140,30 @@ class LLVMAnalyser:
             elif "bitcast" in tokens and self.opened_function is not None:
                 self.analyze_bitcast(tokens)
 
+            elif "landingpad" in tokens and self.opened_function is not None:
+                while True:
+                    if "catch" in lines[1]:
+                        lines.pop(1)
+                    elif "cleanup" in lines[1]:
+                        lines.pop(1)
+                    elif "filter" in lines[1]:
+                        lines.pop(1)
+                    else:
+                        break
+
+                self.analyze_landingpad(tokens)
+                lines.pop(0)
+                continue
+
             # register end of function definition
             elif tokens[0] == "}":
                 self.register_function_end()
 
             # register unregistered line
             # elif self.opened_block is not None:
-                # prev_node = self.node_stack[self.opened_block][-1]
-                # new_node = self.add_node(tokens[0])
-                # self.graphs[self.opened_function].add_edge(prev_node, new_node)
+            # prev_node = self.node_stack[self.opened_block][-1]
+            # new_node = self.add_node(tokens[0])
+            # self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
             elif self.opened_function is not None:
                 print("Error: unregistered instruction!")
@@ -289,6 +304,12 @@ class LLVMAnalyser:
         new_node = self.add_node("bitcast {} from {} to {}".format(bitcast.get_value(),
                                                                    bitcast.get_original_type(),
                                                                    bitcast.get_final_type()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_landingpad(self, tokens):
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("landingpad")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_assignment(self, tokens):
