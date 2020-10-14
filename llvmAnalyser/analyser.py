@@ -8,6 +8,7 @@ from llvmAnalyser.br import BrAnalyzer
 from llvmAnalyser.invoke import InvokeAnalyzer
 from llvmAnalyser.switch import SwitchAnalyzer
 from llvmAnalyser.insertvalue import InsertvalueAnalyzer
+from llvmAnalyser.bitcast import BitcastAnalyzer
 from llvmAnalyser.gtest import Gtest
 from yaml import load
 import re
@@ -44,6 +45,7 @@ class LLVMAnalyser:
         self.invoke_analyzer = InvokeAnalyzer()
         self.switch_analyzer = SwitchAnalyzer()
         self.insertvalue_analyzer = InsertvalueAnalyzer()
+        self.bitcast_analyzer = BitcastAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -130,9 +132,13 @@ class LLVMAnalyser:
                 lines.pop(0)
                 continue
 
-            # register instervalue statement
-            elif "insertvalue" in tokens:
+            # register insertvalue statement
+            elif "insertvalue" in tokens and self.opened_function is not None:
                 self.analyze_insertvalue(tokens)
+
+            # register bitcast statement
+            elif "bitcast" in tokens and self.opened_function is not None:
+                self.analyze_bitcast(tokens)
 
             # register end of function definition
             elif tokens[0] == "}":
@@ -274,6 +280,15 @@ class LLVMAnalyser:
         for index in insertvalue.get_indicies():
             node_name += "{}, ".format(index)
         new_node = self.add_node(node_name[:-2])
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_bitcast(self, tokens):
+        bitcast = self.bitcast_analyzer.analyze_bitcast(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("bitcast {} from {} to {}".format(bitcast.get_value(),
+                                                                   bitcast.get_original_type(),
+                                                                   bitcast.get_final_type()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_assignment(self, tokens):
