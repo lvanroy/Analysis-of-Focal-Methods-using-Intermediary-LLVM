@@ -9,6 +9,7 @@ from llvmAnalyser.invoke import InvokeAnalyzer
 from llvmAnalyser.switch import SwitchAnalyzer
 from llvmAnalyser.insertvalue import InsertvalueAnalyzer
 from llvmAnalyser.bitcast import BitcastAnalyzer
+from llvmAnalyser.extractvalue import ExtractvalueAnalyzer
 from llvmAnalyser.gtest import Gtest
 from yaml import load
 import re
@@ -46,6 +47,7 @@ class LLVMAnalyser:
         self.switch_analyzer = SwitchAnalyzer()
         self.insertvalue_analyzer = InsertvalueAnalyzer()
         self.bitcast_analyzer = BitcastAnalyzer()
+        self.extractvalue_analyzer = ExtractvalueAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -135,6 +137,10 @@ class LLVMAnalyser:
             # register insertvalue statement
             elif "insertvalue" in tokens and self.opened_function is not None:
                 self.analyze_insertvalue(tokens)
+
+            # register extractvalue statement
+            elif "extractvalue" in tokens and self.opened_function is not None:
+                self.analyze_extractvalue(tokens)
 
             # register bitcast statement
             elif "bitcast" in tokens and self.opened_function is not None:
@@ -292,7 +298,18 @@ class LLVMAnalyser:
         else:
             node_name = "insert {} in new object of type {} at index ".format(insertvalue.get_insert_value(),
                                                                               insertvalue.get_object_type())
-        for index in insertvalue.get_indicies():
+        for index in insertvalue.get_indices():
+            node_name += "{}, ".format(index)
+        new_node = self.add_node(node_name[:-2])
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_extractvalue(self, tokens):
+        extractvalue = self.extractvalue_analyzer.analyze_extractvalue(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        node_name = "extract value from {} at index ".format(extractvalue.get_value())
+
+        for index in extractvalue.get_indices():
             node_name += "{}, ".format(index)
         new_node = self.add_node(node_name[:-2])
         self.graphs[self.opened_function].add_edge(prev_node, new_node)

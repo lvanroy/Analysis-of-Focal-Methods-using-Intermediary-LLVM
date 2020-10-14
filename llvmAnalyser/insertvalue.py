@@ -72,5 +72,5 @@ class Insertvalue:
     def get_insert_value(self):
         return self.insert_value
 
-    def get_indicies(self):
+    def get_indices(self):
         return self.indices
