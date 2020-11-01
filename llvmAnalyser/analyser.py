@@ -10,6 +10,7 @@ from llvmAnalyser.switch import SwitchAnalyzer
 from llvmAnalyser.insertvalue import InsertvalueAnalyzer
 from llvmAnalyser.bitcast import BitcastAnalyzer
 from llvmAnalyser.extractvalue import ExtractvalueAnalyzer
+from llvmAnalyser.resume import ResumeAnalyzer
 from llvmAnalyser.gtest import Gtest
 from yaml import load
 import re
@@ -48,6 +49,7 @@ class LLVMAnalyser:
         self.insertvalue_analyzer = InsertvalueAnalyzer()
         self.bitcast_analyzer = BitcastAnalyzer()
         self.extractvalue_analyzer = ExtractvalueAnalyzer()
+        self.resume_analyzer = ResumeAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -157,9 +159,15 @@ class LLVMAnalyser:
                     else:
                         break
 
-                self.analyze_landingpad(tokens)
+                self.analyze_landingpad()
                 lines.pop(0)
                 continue
+
+            elif "resume" in tokens and self.opened_function is not None:
+                self.analyze_resume(tokens)
+
+            elif "unreachable" in tokens and self.opened_function is not None:
+                self.analyze_unreachable()
 
             # register end of function definition
             elif tokens[0] == "}":
@@ -323,11 +331,25 @@ class LLVMAnalyser:
                                                                    bitcast.get_final_type()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
-    def analyze_landingpad(self, tokens):
+    def analyze_landingpad(self):
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("landingpad")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_resume(self, tokens):
+        prev_node = self.node_stack[self.opened_function][-1]
+        resume = self.resume_analyzer.analyze_resume(tokens)
+
+        new_node = self.add_node("resume {} {}".format(resume.get_type(), resume.get_type()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_unreachable(self):
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("unreachable")
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
 
     def analyze_assignment(self, tokens):
         self.assignee = tokens[0]
