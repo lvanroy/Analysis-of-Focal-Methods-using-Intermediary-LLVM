@@ -25,8 +25,10 @@ from llvmAnalyser.memoryAccess.store import StoreAnalyzer
 from llvmAnalyser.memoryAccess.load import LoadAnalyzer
 from llvmAnalyser.memoryAccess.getelementptr import GetelementptrAnalyzer
 
+from llvmAnalyser.conversion.trunc import TruncAnalyzer
 from llvmAnalyser.conversion.bitcast import BitcastAnalyzer
 
+from llvmAnalyser.other.icmp import IcmpAnalyzer
 from llvmAnalyser.other.call import CallAnalyzer
 
 block_start_format = re.compile(r'[0-9]*:')
@@ -64,8 +66,10 @@ class LLVMAnalyser:
         self.load_analyzer = LoadAnalyzer()
         self.getelementptr_analyzer = GetelementptrAnalyzer()
 
+        self.trunc_analyzer = TruncAnalyzer()
         self.bitcast_analyzer = BitcastAnalyzer()
 
+        self.icmp_analyzer = IcmpAnalyzer()
         self.call_analyzer = CallAnalyzer()
 
         # keep track of the graph objects
@@ -212,6 +216,10 @@ class LLVMAnalyser:
             #   'fptoui .. to', 'fptosi .. to', 'uitofp .. to', 'sitofp .. to',
             #   'ptrtoint .. to', 'inttoptr .. to', 'bitcast .. to', 'addrspacecast .. to'
 
+            # register trunc .. to statement
+            elif len(tokens) > 2 and tokens[2] == "trunc" and self.opened_function is not None:
+                self.analyze_trunc(tokens)
+
             # register bitcast statement
             elif "bitcast" in tokens and self.opened_function is not None:
                 self.analyze_bitcast(tokens)
@@ -221,6 +229,10 @@ class LLVMAnalyser:
             # The other instructions are specified as other, due to lack of better classification. These are general
             # cross operation set operations. The llvm instruction set contains the following operations of type other:
             #   'icmp', 'fcmp', 'phi', 'select', 'freeze', 'call', 'va_arg', 'landingpad', 'catchpad', 'cleanuppad'
+
+            # register icmp statement
+            elif "icmp" in tokens and self.opened_function is not None:
+                self.analyze_icmp(tokens)
 
             # register function call
             elif "call" in tokens and self.opened_function is not None:
@@ -432,6 +444,39 @@ class LLVMAnalyser:
         new_node = self.add_node(node_name)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
+    # Analyze Conversion operations
+    # -----------------------------
+    # analyze_trunc()
+    # analyze_bitcast()
+
+    def analyze_trunc(self, tokens):
+        trunc = self.trunc_analyzer.analyze_trunc(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("trunc {} to {}".format(trunc.get_value(), trunc.get_final_type()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_bitcast(self, tokens):
+        bitcast = self.bitcast_analyzer.analyze_bitcast(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("bitcast {} from {} to {}".format(bitcast.get_value(),
+                                                                   bitcast.get_original_type(),
+                                                                   bitcast.get_final_type()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    # Analyze Other operations
+    # ------------------------
+    # analyze_icmp()
+    # analyze_call()
+
+    def analyze_icmp(self, tokens):
+        icmp = self.icmp_analyzer.analyze_icmp(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("{} {} {}".format(icmp.get_value1(), icmp.get_condition(), icmp.get_value2()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
     def analyze_call(self, tokens):
         call = self.call_analyzer.analyze_call(tokens)
         function_name = call.function_name
@@ -447,15 +492,6 @@ class LLVMAnalyser:
             self.top_graph_nodes[function_name] = final_node
         first_node = self.top_graph_nodes[self.opened_function]
         self.top_graph.add_edge(first_node, final_node)
-
-    def analyze_bitcast(self, tokens):
-        bitcast = self.bitcast_analyzer.analyze_bitcast(tokens)
-        prev_node = self.node_stack[self.opened_function][-1]
-
-        new_node = self.add_node("bitcast {} from {} to {}".format(bitcast.get_value(),
-                                                                   bitcast.get_original_type(),
-                                                                   bitcast.get_final_type()))
-        self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_landingpad(self):
         prev_node = self.node_stack[self.opened_function][-1]
