@@ -10,7 +10,7 @@ class IcmpAnalyzer:
         icmp = Icmp()
 
         # pop the potential assignment instruction
-        while tokens[0] != "pop":
+        while tokens[0] != "icmp":
             tokens.pop(0)
 
         # pop the icmp instruction
