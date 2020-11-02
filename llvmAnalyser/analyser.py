@@ -18,6 +18,8 @@ from llvmAnalyser.terminator.resume import ResumeAnalyzer
 
 from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer
 
+from llvmAnalyser.bitwiseBinary.xor import XorAnalyzer
+
 from llvmAnalyser.aggregate.insertvalue import InsertvalueAnalyzer
 from llvmAnalyser.aggregate.extractvalue import ExtractvalueAnalyzer
 
@@ -59,6 +61,8 @@ class LLVMAnalyser:
         self.resume_analyzer = ResumeAnalyzer()
 
         self.binary_op_analyzer = BinaryOpAnalyzer()
+
+        self.xor_analyzer = XorAnalyzer()
 
         self.insertvalue_analyzer = InsertvalueAnalyzer()
         self.extractvalue_analyzer = ExtractvalueAnalyzer()
@@ -165,6 +169,17 @@ class LLVMAnalyser:
             # register binary integer operation
             elif len(tokens) > 2 and tokens[2] in ["add"] and self.opened_function is not None:
                 self.analyze_binary_op(tokens)
+
+            # Bitwise binary operations
+            # -------------------------
+            # Bitwise binary operations are used to do various forms of bit-twiddling in a program. They require two
+            # operands of the same type, execute an operation on them, and produce a single value. The following
+            # bitwise binary operations exist within llvm:
+            #   'sh1', 'lshr', 'ashr', 'and', 'or', 'xor'
+
+            # register xor instruction
+            elif len(tokens) > 2 and tokens[2] == "xor" and self.opened_function is not None:
+                self.analyze_xor(tokens)
 
             # Vector operations
             # -----------------
@@ -387,6 +402,17 @@ class LLVMAnalyser:
 
         op = self.binary_op_analyzer.analyze_binary_op(tokens)
         new_node = self.add_node("{} {} {}".format(op.get_value1(), op.get_op(), op.get_value2()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    # Analyze Bitwise Binary operations
+    # ---------------------------------
+    # analyze_xor()
+
+    def analyze_xor(self, tokens):
+        xor = self.xor_analyzer.analyze_xor(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("{} xor {}".format(xor.op1, xor.op2))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Aggregate operations
