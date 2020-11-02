@@ -29,6 +29,7 @@ from llvmAnalyser.conversion.trunc import TruncAnalyzer
 from llvmAnalyser.conversion.bitcast import BitcastAnalyzer
 
 from llvmAnalyser.other.icmp import IcmpAnalyzer
+from llvmAnalyser.other.phi import PhiAnalyzer
 from llvmAnalyser.other.call import CallAnalyzer
 
 block_start_format = re.compile(r'[0-9]*:')
@@ -70,6 +71,7 @@ class LLVMAnalyser:
         self.bitcast_analyzer = BitcastAnalyzer()
 
         self.icmp_analyzer = IcmpAnalyzer()
+        self.phi_analyzer = PhiAnalyzer()
         self.call_analyzer = CallAnalyzer()
 
         # keep track of the graph objects
@@ -233,6 +235,9 @@ class LLVMAnalyser:
             # register icmp statement
             elif "icmp" in tokens and self.opened_function is not None:
                 self.analyze_icmp(tokens)
+
+            elif "phi" in tokens and self.opened_function is not None:
+                self.analyze_phi(tokens)
 
             # register function call
             elif "call" in tokens and self.opened_function is not None:
@@ -468,6 +473,7 @@ class LLVMAnalyser:
     # Analyze Other operations
     # ------------------------
     # analyze_icmp()
+    # analyze_phi()
     # analyze_call()
 
     def analyze_icmp(self, tokens):
@@ -475,6 +481,16 @@ class LLVMAnalyser:
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("{} {} {}".format(icmp.get_value1(), icmp.get_condition(), icmp.get_value2()))
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_phi(self, tokens):
+        phi = self.phi_analyzer.analyze_phi(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        node_name = ""
+        for option in phi.get_options():
+            node_name += "{} if prev= {}".format(option.get_value(), option.get_label())
+        new_node = self.add_node(node_name[:-2])
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_call(self, tokens):
