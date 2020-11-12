@@ -1,10 +1,11 @@
 c++:
   cxx_clang_path: /usr/bin/clang++
-  test_framework: gtest
 c:
   c_clang_path: /usr/bin/clang
 
 project_path: /mnt/c/Users/larsv/Documents/GitHub/Goal-Oriented-Mutation-Testing/example-cpp
+base_language: c++
+test_framework: gtest
 build_target: llvm_dis
 debug: False
 graph: True

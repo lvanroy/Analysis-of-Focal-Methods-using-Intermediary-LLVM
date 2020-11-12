@@ -62,7 +62,29 @@ class CallAnalyzer:
                 tokens.pop(0)
 
             # read register
-            argument.set_register(tokens[0].replace(")", "").replace(",", ""))
+            angle_brackets = 0
+            square_brackets = 0
+            curly_brackets = 0
+            round_brackets = 0
+            value = ""
+            while True:
+                angle_brackets = angle_brackets + tokens[0].count("<") - tokens[0].count(">")
+                square_brackets = square_brackets + tokens[0].count("[") - tokens[0].count("]")
+                curly_brackets = curly_brackets + tokens[0].count("{") - tokens[0].count("}")
+                round_brackets = round_brackets + tokens[0].count("(") - tokens[0].count(")")
+                value += tokens.pop(0)
+
+                if angle_brackets == 0 and square_brackets == 0 and curly_brackets == 0 and \
+                        ((value[-1] == ")" and round_brackets == -1) or
+                         (value[-1] == "," and round_brackets == 0)):
+                    if value[-1] == ")":
+                        tokens.insert(0, ')')
+                        value = value.rsplit(")", 1)[0]
+                    else:
+                        value = value.rsplit(",", 1)[0]
+
+                    argument.set_register(value)
+                    break
 
             call.add_argument(argument)
 
@@ -100,11 +122,14 @@ class Call:
     def get_function_name(self):
         return self.function_name
 
+    def get_arguments(self):
+        return self.arguments
+
     def __str__(self):
         output = "call {}(".format(self.function_name)
         for argument in self.arguments:
             output += "{}, ".format(argument)
-        output += ") "
+        output = output[:-2] + ") "
 
         if type(self.function_attributes) == list:
             for func_attr in self.function_attributes:

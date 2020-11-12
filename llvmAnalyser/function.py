@@ -366,6 +366,9 @@ class Parameter:
     def set_register(self, register):
         self.register = register
 
+    def get_register(self):
+        return self.register
+
     def __str__(self):
         result = self.parameter_type
         if type(self.parameter_attributes) == list:

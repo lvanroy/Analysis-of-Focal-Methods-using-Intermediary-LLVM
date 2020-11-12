@@ -2,6 +2,7 @@ from graph.node import Node
 from graph.edge import Edge
 from subprocess import call, DEVNULL
 from os import path
+import re
 
 
 class Graph:
@@ -16,8 +17,12 @@ class Graph:
         # this dict will be used to map block names to the corresponding start nodes
         self.block_map = dict()
 
+        self.func = re.compile(r'^.*(= )?call .*$')
+
     def register_start_of_block(self, block_name):
-        self.block_map[block_name] = self.nodes[block_name]
+        for node in self.nodes.values():
+            if node.get_name() == block_name:
+                self.block_map[block_name] = node
 
     def get_start_of_block(self, block_name):
         if block_name in self.block_map:
@@ -31,9 +36,9 @@ class Graph:
         return self.test_func
 
     def add_node(self, node_name):
-        self.nodes[node_name] = Node("Q{}".format(self.node_count), node_name.translate(self.trans))
+        self.nodes[self.node_count] = Node("Q{}".format(self.node_count), node_name.translate(self.trans))
         self.node_count += 1
-        return self.nodes[node_name]
+        return self.nodes[self.node_count-1]
 
     def add_final_node(self, node_name):
         node = self.add_node(node_name)
@@ -52,21 +57,58 @@ class Graph:
         return self.edges[key]
 
     def make_node_start_node(self, node_name):
-        self.nodes[node_name.translate(self.trans)].set_start()
+        for node in self.nodes.values():
+            if node.get_name() == node_name:
+                node.set_start()
+
+    # this function is used to check for assert helpers, which are functions that link test code to the specific assert
+    # functions
+    def check_for_assert_helpers(self):
+        changes_occurred = True
+        assert_helpers = list()
+
+        while changes_occurred:
+            changes_occurred = False
+            for node in self.nodes.values():
+                if not node.is_assertion():
+                    continue
+                if node.get_name() not in assert_helpers:
+                    assert_helpers.append(node.get_name())
+                for edge in self.edges.values():
+                    if edge.end_node == node and not edge.start_node.is_assertion() and not edge.start_node.is_test():
+                        edge.start_node.set_assertion()
+                        changes_occurred = True
+
+        return assert_helpers
+
+    # this function is used to check for variables under test
+    def check_for_used_assertion(self, assert_helpers):
+        test_vars = list()
+        for node in self.nodes.values():
+            if not self.func.match(node.get_name()):
+                continue
+            function = node.get_name().split("call ")[1]
+            if function in assert_helpers:
+                node.set_assertion()
+                arguments = node.get_arguments()
+                test_vars.append(arguments[-1])
+                test_vars.append(arguments[-2])
+
+        return test_vars
 
     def export_graph(self, filename):
-        changes_occured = True
+        changes_occurred = True
         added_nodes = list()
 
         for node in self.needed_nodes:
             if node.is_test():
                 added_nodes.append(node)
 
-        while changes_occured:
-            changes_occured = False
+        while changes_occurred:
+            changes_occurred = False
             for edge in self.edges:
                 if self.edges[edge].start_node in added_nodes and self.edges[edge].end_node not in added_nodes:
-                    changes_occured = True
+                    changes_occurred = True
                     added_nodes.append(self.edges[edge].end_node)
 
         output = "digraph G {\n"
@@ -74,8 +116,22 @@ class Graph:
         for node in added_nodes:
             if node.is_test():
                 output += "\t{}, fillcolor=green, style=filled];\n".format(str(node)[:-1])
+            elif node.is_assertion():
+                output += "\t{}, fillcolor=red, style=filled];\n".format(str(node)[:-1])
             else:
                 output += "\t{};\n".format(node)
+
+            if self.func.match(node.get_name()):
+                arguments = node.get_arguments()
+                if len(arguments) != 0:
+                    argument_header = self.add_node("arguments")
+                    output += "\t{};\n".format(argument_header)
+                    output += "\t{} -> {};\n".format(node.get_id(), argument_header.get_id())
+                    for argument in arguments:
+                        if argument.is_test_var():
+                            output += "\t{}, fillcolor=blue, style=filled];\n".format(str(argument)[:-1])
+                        output += "\t{};\n".format(argument)
+                        output += "\t{} -> {};\n".format(argument_header.get_id(), argument.get_id())
 
         for edge in self.edges:
             if self.edges[edge].start_node in added_nodes and self.edges[edge].end_node in added_nodes:

@@ -74,3 +74,8 @@ class Insertvalue:
 
     def get_indices(self):
         return self.indices
+
+    def get_used_variables(self):
+        if self.original == "undef":
+            return list()
+        return [self.original]

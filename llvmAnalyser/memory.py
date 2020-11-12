@@ -1,11 +1,15 @@
+"""
+Class used to map all registers to the assigned values of that register
+assigned value cna either be another register
+"""
+
+
 class Memory:
     def __init__(self):
         self.memory = dict()
 
-    def get_register_object(self, entry):
-        if entry not in self.memory:
-            self.memory[entry] = Register()
-        return self.memory[entry]
+    def assign_value_to_reg(self, reg, val):
+        self.memory[reg] = Register(val)
 
     def __str__(self):
         output = ""
@@ -15,8 +19,8 @@ class Memory:
 
 
 class Register:
-    def __init__(self):
-        self.value = None
+    def __init__(self, val):
+        self.value = val
 
     def set_value(self, value):
         self.value = value

@@ -9,7 +9,7 @@ except ImportError:
 
 from llvmAnalyser.function import FunctionHandler
 from llvmAnalyser.attributes import AttributeGroupHandler
-from llvmAnalyser.gtest import Gtest
+from llvmAnalyser.testingFramework.gtest import Gtest
 
 from llvmAnalyser.terminator.br import BrAnalyzer
 from llvmAnalyser.terminator.switch import SwitchAnalyzer
@@ -48,7 +48,7 @@ class LLVMAnalyser:
         # register a test analyzer to determine which function signature should be used to discover which functions
         # are tests
         self.test_identifier = None
-        if self.config["c++"]["test_framework"] == "gtest":
+        if self.config["test_framework"] == "gtest":
             self.test_identifier = Gtest
 
         # make handlers for the specific llvm statements
@@ -95,6 +95,10 @@ class LLVMAnalyser:
         # keep track of what register we are assigning to (if any),
         # this is an object of type llvmAnalyser.memory.Register
         self.assignee = None
+
+        # keep track of the rhs value of the assignment
+        # this can be of any statement object part of the llvm analyzers
+        self.rhs = None
 
     def analyse(self, file):
         f = open(file, "r")
@@ -291,14 +295,19 @@ class LLVMAnalyser:
                 if self.opened_function is not None:
                     new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
                     self.node_stack[self.opened_function][-1].set_name(new_name)
+                    self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
+
+                self.rhs = None
                 self.assignee = None
 
             lines.pop(0)
 
         if self.config["graph"]:
+            assert_helpers = self.top_graph.check_for_assert_helpers()
             self.top_graph.export_graph("top_level_graph")
             for graph in self.graphs:
                 if self.graphs[graph].is_test_func():
+                    test_vars = self.graphs[graph].check_for_used_assertion(assert_helpers)
                     self.graphs[graph].export_graph(graph)
 
     def analyze_define(self, tokens):
@@ -314,6 +323,9 @@ class LLVMAnalyser:
             self.top_graph_nodes[self.opened_function].set_test()
             self.graphs[self.opened_function].set_test_func()
             new_node.set_test()
+        if self.test_identifier.identify_assertion_function(self.opened_function):
+            self.top_graph_nodes[self.opened_function].set_assertion()
+            new_node.set_assertion()
 
     def analyze_attribute_group(self, tokens):
         self.attribute_group_handler.identify_attribute_groups(tokens)
@@ -334,57 +346,57 @@ class LLVMAnalyser:
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_br(self, tokens):
-        br = self.br_analyzer.analyze_br(tokens)
+        self.rhs = self.br_analyzer.analyze_br(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("br")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
-        block_name = "{}:{}".format(self.opened_function, br.get_label1())
+        block_name = "{}:{}".format(self.opened_function, self.rhs.get_label1())
         first_branch = self.get_first_node_of_block(block_name)
         self.graphs[self.opened_function].add_edge(new_node, first_branch)
 
-        if br.get_label2() is not None:
-            block_name = "{}:{}".format(self.opened_function, br.get_label2())
+        if self.rhs.get_label2() is not None:
+            block_name = "{}:{}".format(self.opened_function, self.rhs.get_label2())
             second_branch = self.get_first_node_of_block(block_name)
             self.graphs[self.opened_function].add_edge(new_node, second_branch)
 
     def analyze_switch(self, tokens):
-        switch = self.switch_analyzer.analyze_switch(tokens)
+        self.rhs = self.switch_analyzer.analyze_switch(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("switch")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
-        block_name = "{}:{}".format(self.opened_function, switch.get_default())
+        block_name = "{}:{}".format(self.opened_function, self.rhs.get_default())
         def_node = self.get_first_node_of_block(block_name)
         self.graphs[self.opened_function].add_edge(new_node, def_node, "default")
 
-        for branch in switch.get_branches():
+        for branch in self.rhs.get_branches():
             block_name = "{}:{}".format(self.opened_function, branch.get_destination())
             branch_node = self.get_first_node_of_block(block_name)
             self.graphs[self.opened_function].add_edge(new_node, branch_node, "= {}".format(branch.get_condition()))
 
     def analyze_invoke(self, tokens):
-        invoke = self.invoke_analyzer.analyze_invoke(tokens)
+        self.rhs = self.invoke_analyzer.analyze_invoke(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node(invoke.get_func())
+        new_node = self.add_node(self.rhs.get_func())
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
-        block_name = "{}:{}".format(self.opened_function, invoke.get_normal())
+        block_name = "{}:{}".format(self.opened_function, self.rhs.get_normal())
         normal_node = self.get_first_node_of_block(block_name)
         self.graphs[self.opened_function].add_edge(new_node, normal_node, "normal")
 
-        block_name = "{}:{}".format(self.opened_function, invoke.get_exception())
+        block_name = "{}:{}".format(self.opened_function, self.rhs.get_exception())
         exception_node = self.get_first_node_of_block(block_name)
         self.graphs[self.opened_function].add_edge(new_node, exception_node, "exception")
 
     def analyze_resume(self, tokens):
         prev_node = self.node_stack[self.opened_function][-1]
-        resume = self.resume_analyzer.analyze_resume(tokens)
+        self.rhs = self.resume_analyzer.analyze_resume(tokens)
 
-        new_node = self.add_node("resume {} {}".format(resume.get_type(), resume.get_type()))
+        new_node = self.add_node("resume {} {}".format(self.rhs.get_type(), self.rhs.get_type()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_unreachable(self):
@@ -400,8 +412,8 @@ class LLVMAnalyser:
     def analyze_binary_op(self, tokens):
         prev_node = self.node_stack[self.opened_function][-1]
 
-        op = self.binary_op_analyzer.analyze_binary_op(tokens)
-        new_node = self.add_node("{} {} {}".format(op.get_value1(), op.get_op(), op.get_value2()))
+        self.rhs = self.binary_op_analyzer.analyze_binary_op(tokens)
+        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Bitwise Binary operations
@@ -409,10 +421,10 @@ class LLVMAnalyser:
     # analyze_xor()
 
     def analyze_xor(self, tokens):
-        xor = self.xor_analyzer.analyze_xor(tokens)
+        self.rhs = self.xor_analyzer.analyze_xor(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("{} xor {}".format(xor.op1, xor.op2))
+        new_node = self.add_node("{} xor {}".format(self.rhs.op1, self.rhs.op2))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Aggregate operations
@@ -421,26 +433,26 @@ class LLVMAnalyser:
     # analyze_insertvalue()
 
     def analyze_extractvalue(self, tokens):
-        extractvalue = self.extractvalue_analyzer.analyze_extractvalue(tokens)
+        self.rhs = self.extractvalue_analyzer.analyze_extractvalue(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        node_name = "extract value from {} at index ".format(extractvalue.get_value())
+        node_name = "extract value from {} at index ".format(self.rhs.get_value())
 
-        for index in extractvalue.get_indices():
+        for index in self.rhs.get_indices():
             node_name += "{}, ".format(index)
         new_node = self.add_node(node_name[:-2])
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_insertvalue(self, tokens):
-        insertvalue = self.insertvalue_analyzer.analyze_insertvalue(tokens)
+        self.rhs = self.insertvalue_analyzer.analyze_insertvalue(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        if insertvalue.get_original() != "undef":
-            node_name = "insert {} in {} at index ".format(insertvalue.get_insert_value(), insertvalue.get_original())
+        if self.rhs.get_original() != "undef":
+            node_name = "insert {} in {} at index ".format(self.rhs.get_insert_value(), self.rhs.get_original())
         else:
-            node_name = "insert {} in new object of type {} at index ".format(insertvalue.get_insert_value(),
-                                                                              insertvalue.get_object_type())
-        for index in insertvalue.get_indices():
+            node_name = "insert {} in new object of type {} at index ".format(self.rhs.get_insert_value(),
+                                                                              self.rhs.get_object_type())
+        for index in self.rhs.get_indices():
             node_name += "{}, ".format(index)
         new_node = self.add_node(node_name[:-2])
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
@@ -452,10 +464,10 @@ class LLVMAnalyser:
     # analyze_getelementptr()
 
     def analyze_load(self, tokens):
-        load_instruction = self.load_analyzer.analyze_load(tokens)
+        self.rhs = self.load_analyzer.analyze_load(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node(load_instruction.get_value())
+        new_node = self.add_node(self.rhs.get_value())
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_store(self, tokens):
@@ -465,12 +477,14 @@ class LLVMAnalyser:
         new_node = self.add_node("{} = {}".format(store.get_register(), store.get_value()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
+        self.opened_function_memory.assign_value_to_reg(store.get_register(), store.get_value())
+
     def analyze_getelementptr(self, tokens):
-        getelementptr_instruction = self.getelementptr_analyzer.analyze_getelementptr(tokens)
+        self.rhs = self.getelementptr_analyzer.analyze_getelementptr(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        node_name = "getelementptr {}".format(getelementptr_instruction.get_value())
-        for idx in getelementptr_instruction.get_indices():
+        node_name = "getelementptr {}".format(self.rhs.get_value())
+        for idx in self.rhs.get_indices():
             node_name += "[{}]".format(idx)
         new_node = self.add_node(node_name)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
@@ -481,19 +495,19 @@ class LLVMAnalyser:
     # analyze_bitcast()
 
     def analyze_trunc(self, tokens):
-        trunc = self.trunc_analyzer.analyze_trunc(tokens)
+        self.rhs = self.trunc_analyzer.analyze_trunc(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("trunc {} to {}".format(trunc.get_value(), trunc.get_final_type()))
+        new_node = self.add_node("trunc {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_bitcast(self, tokens):
-        bitcast = self.bitcast_analyzer.analyze_bitcast(tokens)
+        self.rhs = self.bitcast_analyzer.analyze_bitcast(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("bitcast {} from {} to {}".format(bitcast.get_value(),
-                                                                   bitcast.get_original_type(),
-                                                                   bitcast.get_final_type()))
+        new_node = self.add_node("bitcast {} from {} to {}".format(self.rhs.get_value(),
+                                                                   self.rhs.get_original_type(),
+                                                                   self.rhs.get_final_type()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Other operations
@@ -501,31 +515,39 @@ class LLVMAnalyser:
     # analyze_icmp()
     # analyze_phi()
     # analyze_call()
+    # analyze_landingpad()
 
     def analyze_icmp(self, tokens):
-        icmp = self.icmp_analyzer.analyze_icmp(tokens)
+        self.rhs = self.icmp_analyzer.analyze_icmp(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("{} {} {}".format(icmp.get_value1(), icmp.get_condition(), icmp.get_value2()))
+        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(),
+                                                   self.rhs.get_condition(),
+                                                   self.rhs.get_value2()))
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_phi(self, tokens):
-        phi = self.phi_analyzer.analyze_phi(tokens)
+        self.rhs = self.phi_analyzer.analyze_phi(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         node_name = ""
-        for option in phi.get_options():
+        for option in self.rhs.get_options():
             node_name += "{} if prev= {}".format(option.get_value(), option.get_label())
         new_node = self.add_node(node_name[:-2])
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_call(self, tokens):
-        call = self.call_analyzer.analyze_call(tokens)
-        function_name = call.function_name
+        self.rhs = self.call_analyzer.analyze_call(tokens)
+        function_name = self.rhs.function_name
         function_call = "call {}".format(function_name)
 
         prev_node = self.node_stack[self.opened_function][-1]
         new_node = self.add_node(function_call)
+
+        for argument in self.rhs.get_arguments():
+            argument_node = self.graphs[self.opened_function].add_node(argument.get_register())
+            new_node.add_argument(argument_node)
+
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
         if function_name in self.top_graph_nodes:
             final_node = self.top_graph_nodes[function_name]
@@ -540,6 +562,10 @@ class LLVMAnalyser:
 
         new_node = self.add_node("landingpad")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    # analyze assignment
+    # ------------------
+    # assignments are tracked to determine the linkage of variables, and to track value at time of analysis
 
     def analyze_assignment(self, tokens):
         self.assignee = tokens[0]

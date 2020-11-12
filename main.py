@@ -65,6 +65,7 @@ print("[2/4]: building llvm - started")
 if not path.exists("build"):
     call(["mkdir", "build"], stdout=DEVNULL)
 
+
 print("-- cmake - started")
 call(["CXX={}".format(config['c++']['cxx_clang_path'])], cwd="./build", shell=True)
 call(["CC={}".format(config['c']['c_clang_path'])], cwd="./build", shell=True)
@@ -77,7 +78,7 @@ print("-- make - started")
 call(["cmake", "--build", ".", "--target", config["build_target"]], cwd="./build")
 print("-- make - finished")
 
-libs = get_libs(config["c++"]["test_framework"])
+libs = get_libs(config["test_framework"])
 arguments = ["llvm-link", determine_executable_path()]
 for lib in libs:
     arguments.append(lib)
