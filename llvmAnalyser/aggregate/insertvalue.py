@@ -1,5 +1,5 @@
 from llvmAnalyser.types import get_type
-
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 class InsertvalueAnalyzer:
     def __init__(self):
@@ -37,8 +37,9 @@ class InsertvalueAnalyzer:
         return insertvalue_instruction
 
 
-class Insertvalue:
+class Insertvalue(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.object_type = None
         self.original = None
         self.insert_type = None

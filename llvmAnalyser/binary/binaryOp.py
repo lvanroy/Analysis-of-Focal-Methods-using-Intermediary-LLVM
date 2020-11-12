@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class BinaryOpAnalyzer:
@@ -43,8 +44,9 @@ class BinaryOpAnalyzer:
         return op
 
 
-class BinOp:
+class BinOp(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.operation = None
         self.value1 = None
         self.value2 = None
@@ -66,3 +68,6 @@ class BinOp:
 
     def get_value2(self):
         return self.value2
+
+    def get_used_variables(self):
+        return [self.value1, self.value2]

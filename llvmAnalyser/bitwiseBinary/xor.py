@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 '''
 Overview:
@@ -40,8 +41,9 @@ class XorAnalyzer:
         return xor
 
 
-class Xor:
+class Xor(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.op1 = None
         self.op2 = None
 
@@ -56,3 +58,6 @@ class Xor:
 
     def get_op2(self):
         return self.op2
+
+    def get_used_variables(self):
+        return [self.op1, self.op2]
