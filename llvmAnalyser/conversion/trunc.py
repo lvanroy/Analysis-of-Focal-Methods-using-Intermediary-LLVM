@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class TruncAnalyzer:
@@ -32,8 +33,9 @@ class TruncAnalyzer:
         return trunc
 
 
-class Trunc:
+class Trunc(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.value = None
         self.final_type = None
 
@@ -48,3 +50,6 @@ class Trunc:
 
     def get_final_type(self):
         return self.final_type
+
+    def get_used_variables(self):
+        return [self.value]

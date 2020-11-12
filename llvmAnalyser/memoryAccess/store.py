@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class StoreAnalyzer:
@@ -34,8 +35,9 @@ class StoreAnalyzer:
         return store
 
 
-class Store:
+class Store(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.value = None
         self.register = None
 
@@ -50,3 +52,6 @@ class Store:
 
     def get_register(self):
         return self.register
+
+    def get_used_variables(self):
+        return [self.value]

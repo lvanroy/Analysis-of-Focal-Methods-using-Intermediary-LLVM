@@ -1,5 +1,6 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmchecker import is_fast_math_flag
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 '''
 Overview:
@@ -57,8 +58,9 @@ class PhiAnalyzer:
         return phi
 
 
-class Phi:
+class Phi(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.options = list()
 
     def add_option(self, option):
@@ -66,6 +68,12 @@ class Phi:
 
     def get_options(self):
         return self.options
+
+    def get_used_variables(self):
+        used_vars = list()
+        for option in self.options:
+            used_vars.append(option.value)
+        return used_vars
 
 
 class PhiOption:

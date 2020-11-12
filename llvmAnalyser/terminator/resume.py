@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class ResumeAnalyzer:
@@ -23,8 +24,9 @@ class ResumeAnalyzer:
         return resume
 
 
-class Resume:
+class Resume(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.ex_type = None
         self.value = None
 
@@ -39,3 +41,6 @@ class Resume:
 
     def get_value(self):
         return self.value
+
+    def get_used_variables(self):
+        return [self.value]

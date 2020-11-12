@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class SwitchAnalyzer:
@@ -41,8 +42,9 @@ class SwitchAnalyzer:
         return switch
 
 
-class Switch:
+class Switch(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.default = None
         self.branches = list()
 
@@ -57,6 +59,12 @@ class Switch:
 
     def get_branches(self):
         return self.branches
+
+    def get_used_variables(self):
+        used_vars = list()
+        for branch in self.branches:
+            used_vars.append(branch.conditional_value)
+        return used_vars
 
     def __str__(self):
         output = "switch def: {}\n".format(self.default)

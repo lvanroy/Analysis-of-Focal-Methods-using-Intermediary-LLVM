@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class LoadAnalyzer:
@@ -39,8 +40,9 @@ class LoadAnalyzer:
         return load
 
 
-class Load:
+class Load(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.value = None
 
     def set_value(self, value):
@@ -48,3 +50,6 @@ class Load:
 
     def get_value(self):
         return self.value
+
+    def get_used_variables(self):
+        return [self.value]

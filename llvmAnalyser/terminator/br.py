@@ -1,6 +1,8 @@
+from llvmAnalyser.llvmStatement import LlvmStatement
 # analyzer for the br commands that can either be of the form
 # br i1 <cond>, label <iftrue>, label <iffalse>
 # br label <dest>          ; Unconditional branch
+
 
 class BrAnalyzer:
     def __init__(self):
@@ -36,8 +38,9 @@ class BrAnalyzer:
         return br
 
 
-class Br:
+class Br(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.condition = None
         self.label1 = None
         self.label2 = None
@@ -56,3 +59,6 @@ class Br:
 
     def get_label2(self):
         return self.label2
+
+    def get_used_variables(self):
+        return [self.condition]

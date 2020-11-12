@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class BitcastAnalyzer:
@@ -31,8 +32,9 @@ class BitcastAnalyzer:
         return bitcast
 
 
-class Bitcast:
+class Bitcast(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.value = None
         self.original_type = None
         self.final_type = None
@@ -54,3 +56,6 @@ class Bitcast:
 
     def get_final_type(self):
         return self.final_type
+
+    def get_used_variables(self):
+        return [self.value]

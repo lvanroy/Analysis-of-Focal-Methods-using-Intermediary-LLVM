@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 '''
 Overview:
@@ -50,8 +51,9 @@ class GetelementptrAnalyzer:
         return op
 
 
-class Getelementptr:
+class Getelementptr(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.value = None
         self.indices = list()
 
@@ -66,3 +68,6 @@ class Getelementptr:
 
     def get_indices(self):
         return self.indices
+
+    def get_used_variables(self):
+        return [self.value]

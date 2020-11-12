@@ -1,6 +1,7 @@
 from llvmAnalyser.llvmchecker import *
 from llvmAnalyser.function import Parameter as Argument
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmStatement import LlvmStatement
 
 
 class CallAnalyzer:
@@ -101,8 +102,9 @@ class CallAnalyzer:
         return call
 
 
-class Call:
+class Call(LlvmStatement):
     def __init__(self):
+        super().__init__()
         self.function_name = None
         self.arguments = list()
         self.function_attributes = list()
@@ -123,6 +125,9 @@ class Call:
         return self.function_name
 
     def get_arguments(self):
+        return self.arguments
+
+    def get_used_variables(self):
         return self.arguments
 
     def __str__(self):
