@@ -32,7 +32,7 @@ from llvmAnalyser.conversion.bitcast import BitcastAnalyzer
 
 from llvmAnalyser.other.icmp import IcmpAnalyzer
 from llvmAnalyser.other.phi import PhiAnalyzer
-from llvmAnalyser.other.call import CallAnalyzer
+from llvmAnalyser.other.call import CallAnalyzer, Call
 
 block_start_format = re.compile(r'[0-9]*:')
 
@@ -294,21 +294,51 @@ class LLVMAnalyser:
             if self.assignee is not None:
                 if self.opened_function is not None:
                     new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
-                    self.node_stack[self.opened_function][-1].set_name(new_name)
+                    top_node = self.node_stack[self.opened_function][-1]
+                    top_node.set_name(new_name)
                     self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
+                    self.opened_function_memory.add_node_to_reg(self.assignee, top_node)
 
                 self.rhs = None
                 self.assignee = None
 
             lines.pop(0)
 
+        # draw the relevant graphs if desired
         if self.config["graph"]:
+            # get the list of functions used for assertions
             assert_helpers = self.top_graph.check_for_assert_helpers()
-            self.top_graph.export_graph("top_level_graph")
+
+            # iterate over all defined graphs
             for graph in self.graphs:
+                # we only want to draw test functions
                 if self.graphs[graph].is_test_func():
+                    # get the memory block of said function
+                    function_memory = self.function_handler.get_function_memory(graph)
+
+                    # get all variables compared in assertions
                     test_vars = self.graphs[graph].check_for_used_assertion(assert_helpers)
+
+                    # trace where said variables are used, in case they can be traced back to a call
+                    # return said register, if not, return None
+                    # we want to track all initial calls, as these are considered to be functions under test
+                    initial_vars = list()
+                    for test_var in test_vars:
+                        initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
+                        if initial is not None:
+                            initial_vars.append(initial)
+
+                    # set all initial nodes as test variables in the graph
+                    for initial_var in initial_vars:
+                        node = function_memory.get_node(initial_var)
+                        node.set_test_var()
+                        self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
+
+                    # draw the graph
                     self.graphs[graph].export_graph(graph)
+
+            # draw the top graph
+            self.top_graph.export_graph("top_level_graph")
 
     def analyze_define(self, tokens):
         self.opened_function = self.function_handler.identify_function(tokens)
@@ -349,7 +379,7 @@ class LLVMAnalyser:
         self.rhs = self.br_analyzer.analyze_br(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("br")
+        new_node = self.add_node("br", self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
         block_name = "{}:{}".format(self.opened_function, self.rhs.get_label1())
@@ -365,7 +395,7 @@ class LLVMAnalyser:
         self.rhs = self.switch_analyzer.analyze_switch(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("switch")
+        new_node = self.add_node("switch", self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
         block_name = "{}:{}".format(self.opened_function, self.rhs.get_default())
@@ -381,7 +411,7 @@ class LLVMAnalyser:
         self.rhs = self.invoke_analyzer.analyze_invoke(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node(self.rhs.get_func())
+        new_node = self.add_node(self.rhs.get_func(), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
         block_name = "{}:{}".format(self.opened_function, self.rhs.get_normal())
@@ -396,7 +426,7 @@ class LLVMAnalyser:
         prev_node = self.node_stack[self.opened_function][-1]
         self.rhs = self.resume_analyzer.analyze_resume(tokens)
 
-        new_node = self.add_node("resume {} {}".format(self.rhs.get_type(), self.rhs.get_type()))
+        new_node = self.add_node("resume {} {}".format(self.rhs.get_type(), self.rhs.get_type()), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_unreachable(self):
@@ -413,7 +443,8 @@ class LLVMAnalyser:
         prev_node = self.node_stack[self.opened_function][-1]
 
         self.rhs = self.binary_op_analyzer.analyze_binary_op(tokens)
-        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2()))
+        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2()),
+                                 self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Bitwise Binary operations
@@ -424,7 +455,7 @@ class LLVMAnalyser:
         self.rhs = self.xor_analyzer.analyze_xor(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("{} xor {}".format(self.rhs.op1, self.rhs.op2))
+        new_node = self.add_node("{} xor {}".format(self.rhs.op1, self.rhs.op2), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Aggregate operations
@@ -440,7 +471,7 @@ class LLVMAnalyser:
 
         for index in self.rhs.get_indices():
             node_name += "{}, ".format(index)
-        new_node = self.add_node(node_name[:-2])
+        new_node = self.add_node(node_name[:-2], self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_insertvalue(self, tokens):
@@ -454,7 +485,7 @@ class LLVMAnalyser:
                                                                               self.rhs.get_object_type())
         for index in self.rhs.get_indices():
             node_name += "{}, ".format(index)
-        new_node = self.add_node(node_name[:-2])
+        new_node = self.add_node(node_name[:-2], self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Memory Access and Addressing operations
@@ -467,17 +498,18 @@ class LLVMAnalyser:
         self.rhs = self.load_analyzer.analyze_load(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node(self.rhs.get_value())
+        new_node = self.add_node(self.rhs.get_value(), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_store(self, tokens):
         store = self.store_analyzer.analyze_store(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("{} = {}".format(store.get_register(), store.get_value()))
+        new_node = self.add_node("{} = {}".format(store.get_register(), str(store.get_value())), store)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
         self.opened_function_memory.assign_value_to_reg(store.get_register(), store.get_value())
+        self.opened_function_memory.add_node_to_reg(store.get_register(), new_node)
 
     def analyze_getelementptr(self, tokens):
         self.rhs = self.getelementptr_analyzer.analyze_getelementptr(tokens)
@@ -486,7 +518,7 @@ class LLVMAnalyser:
         node_name = "getelementptr {}".format(self.rhs.get_value())
         for idx in self.rhs.get_indices():
             node_name += "[{}]".format(idx)
-        new_node = self.add_node(node_name)
+        new_node = self.add_node(node_name, self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Conversion operations
@@ -498,7 +530,7 @@ class LLVMAnalyser:
         self.rhs = self.trunc_analyzer.analyze_trunc(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
-        new_node = self.add_node("trunc {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()))
+        new_node = self.add_node("trunc {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_bitcast(self, tokens):
@@ -507,7 +539,8 @@ class LLVMAnalyser:
 
         new_node = self.add_node("bitcast {} from {} to {}".format(self.rhs.get_value(),
                                                                    self.rhs.get_original_type(),
-                                                                   self.rhs.get_final_type()))
+                                                                   self.rhs.get_final_type()),
+                                 self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # Analyze Other operations
@@ -523,7 +556,8 @@ class LLVMAnalyser:
 
         new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(),
                                                    self.rhs.get_condition(),
-                                                   self.rhs.get_value2()))
+                                                   self.rhs.get_value2()),
+                                 self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_phi(self, tokens):
@@ -533,7 +567,7 @@ class LLVMAnalyser:
         node_name = ""
         for option in self.rhs.get_options():
             node_name += "{} if prev= {}".format(option.get_value(), option.get_label())
-        new_node = self.add_node(node_name[:-2])
+        new_node = self.add_node(node_name[:-2], self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_call(self, tokens):
@@ -542,7 +576,7 @@ class LLVMAnalyser:
         function_call = "call {}".format(function_name)
 
         prev_node = self.node_stack[self.opened_function][-1]
-        new_node = self.add_node(function_call)
+        new_node = self.add_node(function_call, self.rhs)
 
         for argument in self.rhs.get_arguments():
             argument_node = self.graphs[self.opened_function].add_node(argument.get_register())
@@ -584,7 +618,40 @@ class LLVMAnalyser:
             self.graphs[self.opened_function].register_start_of_block(block_name.split(":")[1])
             return new_node
 
-    def add_node(self, node_name):
+    def add_node(self, node_name, context=None):
         new_node = self.graphs[self.opened_function].add_node(node_name)
+        new_node.set_context(context)
         self.node_stack[self.opened_function].append(new_node)
         return new_node
+
+    # we need to determine what values correspond to the registers used for testing
+    # we will trace the assigned values to registers throughout the function
+    # when it halts at a constant, we stop our trace, and assume that this is a value that is used
+    # to compare against, and not the value under test
+    # in case we encounter a function, we return the first register that is used
+    @staticmethod
+    def check_for_initial_call(token, memory):
+        current = [token]
+        new = list()
+
+        while True:
+            while current:
+                new_token = current.pop(0)
+
+                # assigned by instruction we skipped, therefore assumed to be irrelevant
+                if not memory.is_reg_in_mem(new_token):
+                    continue
+
+                next_rhs = memory.get_val(new_token)
+                if isinstance(next_rhs, Call):
+                    return new_token
+
+                used_var = next_rhs.get_used_variables()
+                if used_var is not None:
+                    new += used_var
+
+            if not new:
+                return None
+
+            current = new
+            new = list()

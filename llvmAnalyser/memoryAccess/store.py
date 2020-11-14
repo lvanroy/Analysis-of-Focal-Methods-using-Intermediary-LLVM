@@ -24,7 +24,7 @@ class StoreAnalyzer:
         # skip type
         _, tokens = get_type(tokens)
 
-        store.set_value(tokens[0].replace(",", ""))
+        store.set_value(Value(tokens[0].replace(",", "")))
         tokens.pop(0)
 
         # skip type
@@ -55,3 +55,23 @@ class Store(LlvmStatement):
 
     def get_used_variables(self):
         return [self.value]
+
+
+class Value(LlvmStatement):
+    def __init__(self, value):
+        super().__init__()
+        self.value = value
+
+        if "%" in value:
+            self.used_vars = [value]
+        else:
+            self.used_vars = None
+
+    def get_value(self):
+        return self.value
+
+    def get_used_variables(self):
+        return self.used_vars
+
+    def __str__(self):
+        return self.value

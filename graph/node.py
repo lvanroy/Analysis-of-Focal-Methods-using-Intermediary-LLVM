@@ -2,6 +2,7 @@ class Node:
     def __init__(self, node_id, node_name):
         self.node_id = node_id
         self.node_name = node_name
+        self.context = None
         self.arguments = list()
         self.final = False
         self.assertion = False
@@ -48,3 +49,9 @@ class Node:
 
     def get_arguments(self):
         return self.arguments
+
+    def set_context(self, context):
+        self.context = context
+
+    def get_context(self):
+        return self.context

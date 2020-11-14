@@ -115,9 +115,11 @@ class Graph:
 
         for node in added_nodes:
             if node.is_test():
-                output += "\t{}, fillcolor=green, style=filled];\n".format(str(node)[:-1])
+                output += "\t{}, fontcolor=green];\n".format(str(node)[:-1])
             elif node.is_assertion():
-                output += "\t{}, fillcolor=red, style=filled];\n".format(str(node)[:-1])
+                output += "\t{}, fontcolor=red];\n".format(str(node)[:-1])
+            elif node.is_test_var():
+                output += "\t{}, fontcolor=blue];\n".format(str(node)[:-1])
             else:
                 output += "\t{};\n".format(node)
 
@@ -128,8 +130,6 @@ class Graph:
                     output += "\t{};\n".format(argument_header)
                     output += "\t{} -> {};\n".format(node.get_id(), argument_header.get_id())
                     for argument in arguments:
-                        if argument.is_test_var():
-                            output += "\t{}, fillcolor=blue, style=filled];\n".format(str(argument)[:-1])
                         output += "\t{};\n".format(argument)
                         output += "\t{} -> {};\n".format(argument_header.get_id(), argument.get_id())
 
