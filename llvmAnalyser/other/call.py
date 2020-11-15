@@ -108,6 +108,7 @@ class Call(LlvmStatement):
         self.function_name = None
         self.arguments = list()
         self.function_attributes = list()
+        self.memory = None
 
     def set_function_name(self, function_name):
         self.function_name = function_name

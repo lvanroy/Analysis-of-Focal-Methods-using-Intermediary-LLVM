@@ -10,7 +10,8 @@ except ImportError:
 
 from llvmAnalyser.analyser import LLVMAnalyser
 
-config = load(open('config.yml').read(), Loader=Loader)
+with open('config.yml', 'r') as f:
+    config = load(f.read(), Loader=Loader)
 
 
 def determine_executable_path():
@@ -67,11 +68,9 @@ if not path.exists("build"):
 
 
 print("-- cmake - started")
-call(["CXX={}".format(config['c++']['cxx_clang_path'])], cwd="./build", shell=True)
-call(["CC={}".format(config['c']['c_clang_path'])], cwd="./build", shell=True)
-call(["cmake", "-DCMAKE_C_COMPILER={}".format(config['c']['c_clang_path']),
-      "-DCMAKE_CXX_COMPILER={}".format(config['c++']['cxx_clang_path']),
-      config['project_path']], cwd="./build")
+c_compiler = "-DCMAKE_C_COMPILER={}".format(config["c"]["c_clang_path"])
+cxx_compiler = "-DCMAKE_CXX_COMPILER={}".format(config["c++"]["cxx_clang_path"])
+call(["cmake", c_compiler, cxx_compiler, config['project_path']], cwd="./build")
 print("-- cmake - finished")
 
 print("-- make - started")
@@ -80,8 +79,7 @@ print("-- make - finished")
 
 libs = get_libs(config["test_framework"])
 arguments = ["llvm-link", determine_executable_path()]
-for lib in libs:
-    arguments.append(lib)
+arguments += libs
 arguments += ["-o", "link.bc"]
 call(arguments, cwd="./build")
 call(["llvm-dis", "link.bc", "-o", "link_ir.ll"], cwd="./build")

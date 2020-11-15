@@ -43,7 +43,8 @@ block_start_format = re.compile(r'[0-9]*:')
 class LLVMAnalyser:
     def __init__(self):
         # load the config
-        self.config = load(open('config.yml').read(), Loader=Loader)
+        with open('config.yml', 'r') as f:
+            self.config = load(f.read(), Loader=Loader)
 
         # register a test analyzer to determine which function signature should be used to discover which functions
         # are tests
@@ -304,41 +305,50 @@ class LLVMAnalyser:
 
             lines.pop(0)
 
-        # draw the relevant graphs if desired
-        if self.config["graph"]:
-            # get the list of functions used for assertions
-            assert_helpers = self.top_graph.check_for_assert_helpers()
+        # get the list of functions used for assertions
+        assert_helpers = self.top_graph.check_for_assert_helpers()
 
-            # iterate over all defined graphs
-            for graph in self.graphs:
-                # we only want to draw test functions
-                if self.graphs[graph].is_test_func():
-                    # get the memory block of said function
-                    function_memory = self.function_handler.get_function_memory(graph)
+        # keep track of the functions under test for each test function
+        focal_methods = dict()
 
-                    # get all variables compared in assertions
-                    test_vars = self.graphs[graph].check_for_used_assertion(assert_helpers)
+        # iterate over all defined graphs
+        for graph in self.graphs:
+            # we only want to draw test functions
+            if self.graphs[graph].is_test_func():
+                # make an entry in the focal methods dict
+                focal_methods[graph] = set()
 
-                    # trace where said variables are used, in case they can be traced back to a call
-                    # return said register, if not, return None
-                    # we want to track all initial calls, as these are considered to be functions under test
-                    initial_vars = list()
-                    for test_var in test_vars:
-                        initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
-                        if initial is not None:
-                            initial_vars.append(initial)
+                # get the memory block of said function
+                function_memory = self.function_handler.get_function_memory(graph)
 
-                    # set all initial nodes as test variables in the graph
-                    for initial_var in initial_vars:
-                        node = function_memory.get_node(initial_var)
-                        node.set_test_var()
-                        self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
+                # get all variables compared in assertions
+                test_vars = self.graphs[graph].check_for_used_assertion(assert_helpers)
 
-                    # draw the graph
+                # trace where said variables are used, in case they can be traced back to a call
+                # return said register, if not, return None
+                # we want to track all initial calls, as these are considered to be functions under test
+                initial_vars = list()
+                for test_var in test_vars:
+                    initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
+                    if initial is not None:
+                        initial_vars.append(initial)
+
+                # set all initial nodes as test variables in the graph
+                for initial_var in initial_vars:
+                    node = function_memory.get_node(initial_var)
+                    node.set_test_var()
+                    self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
+                    focal_methods[graph].add(node.get_context().get_function_name())
+
+                # draw the relevant graphs if desired
+                if self.config["graph"]:
                     self.graphs[graph].export_graph(graph)
 
-            # draw the top graph
+        # draw the top graph if desired
+        if self.config["graph"]:
             self.top_graph.export_graph("top_level_graph")
+
+        return focal_methods
 
     def analyze_define(self, tokens):
         self.opened_function = self.function_handler.identify_function(tokens)
