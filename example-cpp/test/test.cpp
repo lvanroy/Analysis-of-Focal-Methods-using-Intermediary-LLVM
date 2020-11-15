@@ -3,10 +3,7 @@
 //
 
 #include "gtest/gtest.h"
-
-int add_int(int a, int b){
-    return a + b;
-}
+#include "../source/add.h"
 
 TEST(ADDTEST, eq){
     ASSERT_EQ(add_int(2, 3), 5);

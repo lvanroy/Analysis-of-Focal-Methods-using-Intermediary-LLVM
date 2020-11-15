@@ -32,7 +32,7 @@ endif()
 
 # Now simply link against gtest or gtest_main as needed.
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/googletest-src/googletest/include)
-add_executable(test test.cpp)
+add_executable(test test.cpp ../source/add.cpp)
 target_link_libraries(test gtest_main)
 
 # specify linker language, required by llvmir cmake
