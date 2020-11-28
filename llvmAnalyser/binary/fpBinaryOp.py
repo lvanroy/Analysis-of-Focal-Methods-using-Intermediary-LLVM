@@ -1,22 +1,20 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
+from llvmAnalyser.llvmchecker import is_fast_math_flag
 
 
-class BinaryOpAnalyzer:
+class FpBinaryOpAnalyzer:
     def __init__(self):
-        self.operations = ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"]
+        self.operations = ["fadd", "fsub", "fmul", "fdiv"]
         self.op_symbols = {
-            "add": "+",
-            "sub": "-",
-            "mul": "*",
-            "sdiv": "/",
-            "srem": "%",
-            "udiv": "/",
-            "urem": "%"
+            "fadd": "+",
+            "fsub": "-",
+            "fmul": "*",
+            "fdiv": "/"
         }
 
-    def analyze_binary_op(self, tokens: list):
-        op = BinOp()
+    def analyze_fp_binary_op(self, tokens: list):
+        op = FpBinOp()
 
         # pop the assignment
         while tokens[0] not in self.operations:
@@ -25,16 +23,8 @@ class BinaryOpAnalyzer:
         # pop the operation
         op.set_op(self.op_symbols[tokens.pop(0)])
 
-        # pop potential nsw token
-        if tokens[0] == "nsw":
-            tokens.pop(0)
-
-        # pop potential nuw token
-        if tokens[0] == "nuw":
-            tokens.pop(0)
-
-        # pop potential exact token
-        if tokens[0] == "exact":
+        # pop potential fastmath flags
+        while is_fast_math_flag(tokens[0]):
             tokens.pop(0)
 
         # get the type
@@ -54,7 +44,7 @@ class BinaryOpAnalyzer:
         return op
 
 
-class BinOp(LlvmStatement):
+class FpBinOp(LlvmStatement):
     def __init__(self):
         super().__init__()
         self.operation = None

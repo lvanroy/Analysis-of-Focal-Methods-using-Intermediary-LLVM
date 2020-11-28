@@ -1,6 +1,7 @@
 from llvmAnalyser.llvmchecker import *
 from llvmAnalyser.function import Parameter as Argument
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
@@ -11,6 +12,7 @@ class CallAnalyzer:
     @staticmethod
     def analyze_call(tokens: list):
         call = Call()
+        print(tokens)
 
         # skip all initial tokens
         while tokens[0] != "call":
@@ -47,15 +49,12 @@ class CallAnalyzer:
 
         # read the argument list
         while "(" in tokens[0] or ")" not in tokens[0]:
+            print("start: {}".format(tokens))
             argument = Argument()
 
             # read argument type
-            if tokens[1] in {"()", "()*"}:
-                argument.set_parameter_type("{} {}".format(tokens[0], tokens[1]))
-                tokens.pop(0)
-            else:
-                argument.set_parameter_type(tokens[0])
-            tokens.pop(0)
+            parameter_type, tokens = get_type(tokens)
+            argument.set_parameter_type(parameter_type)
 
             # read potential parameter attributes
             while is_parameter_attribute(tokens[0]):
@@ -63,29 +62,8 @@ class CallAnalyzer:
                 tokens.pop(0)
 
             # read register
-            angle_brackets = 0
-            square_brackets = 0
-            curly_brackets = 0
-            round_brackets = 0
-            value = ""
-            while True:
-                angle_brackets = angle_brackets + tokens[0].count("<") - tokens[0].count(">")
-                square_brackets = square_brackets + tokens[0].count("[") - tokens[0].count("]")
-                curly_brackets = curly_brackets + tokens[0].count("{") - tokens[0].count("}")
-                round_brackets = round_brackets + tokens[0].count("(") - tokens[0].count(")")
-                value += tokens.pop(0)
-
-                if angle_brackets == 0 and square_brackets == 0 and curly_brackets == 0 and \
-                        ((value[-1] == ")" and round_brackets == -1) or
-                         (value[-1] == "," and round_brackets == 0)):
-                    if value[-1] == ")":
-                        tokens.insert(0, ')')
-                        value = value.rsplit(")", 1)[0]
-                    else:
-                        value = value.rsplit(",", 1)[0]
-
-                    argument.set_register(value)
-                    break
+            value, tokens = get_value(tokens)
+            argument.set_register(value)
 
             call.add_argument(argument)
 
