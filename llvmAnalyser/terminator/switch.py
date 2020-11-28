@@ -2,44 +2,39 @@ from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
-class SwitchAnalyzer:
-    def __init__(self):
-        pass
+def analyze_switch(tokens):
+    switch = Switch()
 
-    @staticmethod
-    def analyze_switch(tokens):
-        switch = Switch()
+    # pop the switch label
+    tokens.pop(0)
 
-        # pop the switch label
-        tokens.pop(0)
+    # pop the condition
+    _, tokens = get_type(tokens)
+    tokens.pop(0)
 
-        # pop the condition
+    # get the default label
+    tokens.pop(0)
+    switch.set_default(tokens[0])
+    tokens.pop(0)
+
+    tokens.pop(0)
+
+    while tokens[0] != "]":
+        branch = Branch()
+
+        # pop the compared value
         _, tokens = get_type(tokens)
+        branch.set_condition(tokens[0].replace(",", ""))
         tokens.pop(0)
 
-        # get the default label
+        # get the corresponding label
         tokens.pop(0)
-        switch.set_default(tokens[0])
-        tokens.pop(0)
-
+        branch.set_destination(tokens[0])
         tokens.pop(0)
 
-        while tokens[0] != "]":
-            branch = Branch()
+        switch.add_branch(branch)
 
-            # pop the compared value
-            _, tokens = get_type(tokens)
-            branch.set_condition(tokens[0].replace(",", ""))
-            tokens.pop(0)
-
-            # get the corresponding label
-            tokens.pop(0)
-            branch.set_destination(tokens[0])
-            tokens.pop(0)
-
-            switch.add_branch(branch)
-
-        return switch
+    return switch
 
 
 class Switch(LlvmStatement):

@@ -1,27 +1,25 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
+# The ‘resume’ instruction is a terminator instruction that has no successors.
+#
+# resume <type> <value>
 
 
-class ResumeAnalyzer:
-    def __init__(self):
-        pass
+def analyze_resume(tokens):
+    resume = Resume()
 
-    @staticmethod
-    def analyze_resume(tokens):
-        resume = Resume()
+    # pop the resume instruction
+    tokens.pop(0)
 
-        # pop the resume instruction
-        tokens.pop(0)
+    # get the ex type
+    ex_type, tokens = get_type(tokens)
+    resume.set_type(ex_type)
 
-        # get the ex type
-        ex_type, tokens = get_type(tokens)
-        resume.set_type(ex_type)
+    # get the value
+    value = tokens.pop(0)
+    resume.set_value(value)
 
-        # get the value
-        value = tokens.pop(0)
-        resume.set_value(value)
-
-        return resume
+    return resume
 
 
 class Resume(LlvmStatement):

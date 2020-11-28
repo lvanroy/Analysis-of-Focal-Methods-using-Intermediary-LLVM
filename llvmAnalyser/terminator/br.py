@@ -4,38 +4,33 @@ from llvmAnalyser.llvmStatement import LlvmStatement
 # br label <dest>          ; Unconditional branch
 
 
-class BrAnalyzer:
-    def __init__(self):
-        pass
+def analyze_br(tokens: list):
+    br = Br()
 
-    @staticmethod
-    def analyze_br(tokens: list):
-        br = Br()
+    # pop the br command
+    tokens.pop(0)
 
-        # pop the br command
-        tokens.pop(0)
-
-        if tokens[0] == "label":
-            br.set_label_1(tokens[1])
-            return br
-
-        # pop the i1 type specifier
-        tokens.pop(0)
-
-        # copy the condition to the br object
-        br.set_condition(tokens[0])
-        tokens.pop(0)
-
-        # read the iftrue label
-        tokens.pop(0)
-        br.set_label_1(tokens[0].replace(",", ""))
-        tokens.pop(0)
-
-        # read the iffalse label
-        tokens.pop(0)
-        br.set_label_2(tokens[0])
-
+    if tokens[0] == "label":
+        br.set_label_1(tokens[1])
         return br
+
+    # pop the i1 type specifier
+    tokens.pop(0)
+
+    # copy the condition to the br object
+    br.set_condition(tokens[0])
+    tokens.pop(0)
+
+    # read the iftrue label
+    tokens.pop(0)
+    br.set_label_1(tokens[0].replace(",", ""))
+    tokens.pop(0)
+
+    # read the iffalse label
+    tokens.pop(0)
+    br.set_label_2(tokens[0])
+
+    return br
 
 
 class Br(LlvmStatement):

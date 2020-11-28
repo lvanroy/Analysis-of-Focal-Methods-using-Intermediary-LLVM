@@ -5,32 +5,27 @@ from llvmAnalyser.types import get_type
 # indirectbr <somety>* <address>, [ label <dest1>, label <dest2> ]
 
 
-class IndirectBrAnalyzer:
-    def __init__(self):
-        pass
+def analyze_inidrectbr(tokens: list):
+    br = IndirectBr()
 
-    @staticmethod
-    def analyze_inidrectbr(tokens: list):
-        br = IndirectBr()
+    # pop the br command
+    tokens.pop(0)
 
-        # pop the br command
+    _, tokens = get_type(tokens)
+
+    # pop the address specifier
+    br.set_address(tokens.pop(0).replace(",", ""))
+
+    tokens.pop(0)
+    # pop the labels
+    while tokens[0] != "]":
+        # pop the label token
         tokens.pop(0)
 
-        _, tokens = get_type(tokens)
+        # get the destination
+        br.add_label(tokens.pop(0).replace(",", ""))
 
-        # pop the address specifier
-        br.set_address(tokens.pop(0).replace(",", ""))
-
-        tokens.pop(0)
-        # pop the labels
-        while tokens[0] != "]":
-            # pop the label token
-            tokens.pop(0)
-
-            # get the destination
-            br.add_label(tokens.pop(0).replace(",", ""))
-
-        return br
+    return br
 
 
 class IndirectBr(LlvmStatement):
