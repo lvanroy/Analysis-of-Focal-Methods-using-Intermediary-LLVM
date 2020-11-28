@@ -20,6 +20,8 @@ def get_type(tokens):
 
     # register end of type
     if specified_type[-1] == "," and specified_type.count("(") == specified_type.count(")"):
+        if specified_type[-1] == ",":
+            specified_type = specified_type[:-1]
         return specified_type, tokens
 
     return check_for_templated_parts(specified_type, tokens)
@@ -40,6 +42,8 @@ def check_for_function_type(specified_type, tokens):
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
         if open_counter == 0:
+            if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
             return specified_type, tokens
 
 
@@ -57,11 +61,15 @@ def check_for_pointer_type(specified_type, tokens):
         tokens.pop(0)
 
     specified_type += " {}*".format(temp_tokens[0])
+    if specified_type[-1] == ",":
+        specified_type = specified_type[:-1]
     return check_for_function_type(specified_type, tokens)
 
 
 def check_for_templated_parts(specified_type, tokens):
     if len(tokens) == 0:
+        if specified_type[-1] == ",":
+            specified_type = specified_type[:-1]
         return specified_type, tokens
 
     open_counter = specified_type.count("<") - specified_type.count(">")
@@ -71,6 +79,8 @@ def check_for_templated_parts(specified_type, tokens):
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
 
+    if specified_type[-1] == ",":
+        specified_type = specified_type[:-1]
     return check_for_pointer_type(specified_type, tokens)
 
 
@@ -83,6 +93,8 @@ def get_vector_type(tokens):
     tokens.pop(0)
     while True:
         if vector.match(specified_type):
+            if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
             return check_for_pointer_type(specified_type, tokens)
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
@@ -102,6 +114,8 @@ def get_array_type(tokens):
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
         if open_counter == 0:
+            if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
             return check_for_pointer_type(specified_type, tokens)
 
 
@@ -116,4 +130,6 @@ def get_struct_type(tokens):
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
         if "}" in specified_type:
+            if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
             return check_for_pointer_type(specified_type, tokens)

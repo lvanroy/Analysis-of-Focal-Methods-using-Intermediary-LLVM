@@ -1,6 +1,8 @@
 # this function accepts a chain of tokens and will return the defined value within it
 # the value needs to start on the first token
 # the return will be a tuple containing the value that was found, as well as the remaining tokens
+
+
 def get_value(tokens):
     # read the parameter value
     angle_brackets = 0
@@ -24,4 +26,6 @@ def get_value(tokens):
             else:
                 value = value.rsplit(",", 1)[0]
 
+            if value[-1] == ",":
+                value = value[:-1]
             return value, tokens
