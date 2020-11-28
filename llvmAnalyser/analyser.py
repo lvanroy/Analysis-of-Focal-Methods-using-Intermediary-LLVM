@@ -13,10 +13,12 @@ from llvmAnalyser.testingFramework.gtest import Gtest
 
 from llvmAnalyser.terminator.br import BrAnalyzer
 from llvmAnalyser.terminator.switch import SwitchAnalyzer
+from llvmAnalyser.terminator.indirectbr import IndirectBrAnalyzer
 from llvmAnalyser.terminator.invoke import InvokeAnalyzer
 from llvmAnalyser.terminator.resume import ResumeAnalyzer
 
 from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer
+from llvmAnalyser.binary.fpBinaryOp import FpBinaryOpAnalyzer
 
 from llvmAnalyser.bitwiseBinary.xor import XorAnalyzer
 
@@ -28,9 +30,12 @@ from llvmAnalyser.memoryAccess.load import LoadAnalyzer
 from llvmAnalyser.memoryAccess.getelementptr import GetelementptrAnalyzer
 
 from llvmAnalyser.conversion.trunc import TruncAnalyzer
+from llvmAnalyser.conversion.fpext import FpextAnalyzer
+from llvmAnalyser.conversion.sitofp import SitofpAnalyzer
 from llvmAnalyser.conversion.bitcast import BitcastAnalyzer
 
 from llvmAnalyser.other.icmp import IcmpAnalyzer
+from llvmAnalyser.other.fcmp import FcmpAnalyzer
 from llvmAnalyser.other.phi import PhiAnalyzer
 from llvmAnalyser.other.call import CallAnalyzer, Call
 
@@ -58,10 +63,12 @@ class LLVMAnalyser:
 
         self.br_analyzer = BrAnalyzer()
         self.switch_analyzer = SwitchAnalyzer()
+        self.indirectbr_analyzer = IndirectBrAnalyzer()
         self.invoke_analyzer = InvokeAnalyzer()
         self.resume_analyzer = ResumeAnalyzer()
 
         self.binary_op_analyzer = BinaryOpAnalyzer()
+        self.fp_binary_op_analyzer = FpBinaryOpAnalyzer()
 
         self.xor_analyzer = XorAnalyzer()
 
@@ -73,9 +80,12 @@ class LLVMAnalyser:
         self.getelementptr_analyzer = GetelementptrAnalyzer()
 
         self.trunc_analyzer = TruncAnalyzer()
+        self.fpext_analyzer = FpextAnalyzer()
+        self.sitofp_analayzer = SitofpAnalyzer()
         self.bitcast_analyzer = BitcastAnalyzer()
 
         self.icmp_analyzer = IcmpAnalyzer()
+        self.fcmp_analyzer = FcmpAnalyzer()
         self.phi_analyzer = PhiAnalyzer()
         self.call_analyzer = CallAnalyzer()
 
@@ -148,6 +158,10 @@ class LLVMAnalyser:
                     lines.pop(1)
                 self.analyze_switch(tokens)
 
+            # register indirectbr statement
+            elif "indirectbr" in tokens and self.opened_function is not None:
+                self.analyze_indirectbr(tokens)
+
             # register invoke statement
             elif "invoke" in tokens and self.opened_function is not None:
                 tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
@@ -172,8 +186,13 @@ class LLVMAnalyser:
             #       operations
 
             # register binary integer operation
-            elif len(tokens) > 2 and tokens[2] in ["add"] and self.opened_function is not None:
+            elif len(tokens) > 2 and tokens[2] in ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"] and \
+                    self.opened_function is not None:
                 self.analyze_binary_op(tokens)
+
+            # register binary floating point operations
+            elif len(tokens) > 2 and tokens[2] in ["fadd", "fsub", "fmul", "fdiv"] and self.opened_function is not None:
+                self.analyze_fp_binary_op(tokens)
 
             # Bitwise binary operations
             # -------------------------
@@ -242,6 +261,14 @@ class LLVMAnalyser:
             elif len(tokens) > 2 and tokens[2] == "trunc" and self.opened_function is not None:
                 self.analyze_trunc(tokens)
 
+            # register fpext .. to statement
+            elif len(tokens) > 2 and tokens[2] == "fpext" and self.opened_function is not None:
+                self.analyze_fpext(tokens)
+
+            # register sitofp .. to statement
+            elif len(tokens) > 2 and tokens[2] == "sitofp" and self.opened_function is not None:
+                self.analyze_sitofp(tokens)
+
             # register bitcast statement
             elif "bitcast" in tokens and self.opened_function is not None:
                 self.analyze_bitcast(tokens)
@@ -256,6 +283,11 @@ class LLVMAnalyser:
             elif "icmp" in tokens and self.opened_function is not None:
                 self.analyze_icmp(tokens)
 
+            # register fcmp statement
+            elif "fcmp" in tokens and self.opened_function is not None:
+                self.analyze_fcmp(tokens)
+
+            # register phi statement
             elif "phi" in tokens and self.opened_function is not None:
                 self.analyze_phi(tokens)
 
@@ -375,6 +407,7 @@ class LLVMAnalyser:
     # analyze_return()
     # analyze_br()
     # analyze_switch()
+    # analyze_indirectbr()
     # analyze_invoke()
     # analyze_resume()
     # analyze_unreachable()
@@ -417,6 +450,19 @@ class LLVMAnalyser:
             branch_node = self.get_first_node_of_block(block_name)
             self.graphs[self.opened_function].add_edge(new_node, branch_node, "= {}".format(branch.get_condition()))
 
+    def analyze_indirectbr(self, tokens):
+        self.rhs = self.indirectbr_analyzer.analyze_inidrectbr(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("indirectbr", self.rhs)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+        for label in self.rhs.get_labels():
+            block_name = "{}:{}".format(self.opened_function, label)
+            branch_node = self.get_first_node_of_block(block_name)
+            self.graphs[self.opened_function].add_edge(new_node, branch_node, "{}* == {}".format(self.rhs.get_address(),
+                                                                                                 label))
+
     def analyze_invoke(self, tokens):
         self.rhs = self.invoke_analyzer.analyze_invoke(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
@@ -448,11 +494,20 @@ class LLVMAnalyser:
     # Analyze Binary operations
     # -------------------------
     # analyze_binary_op()
+    # analyze_fp_binary_op()
 
     def analyze_binary_op(self, tokens):
         prev_node = self.node_stack[self.opened_function][-1]
 
         self.rhs = self.binary_op_analyzer.analyze_binary_op(tokens)
+        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2()),
+                                 self.rhs)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_fp_binary_op(self, tokens):
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        self.rhs = self.fp_binary_op_analyzer.analyze_fp_binary_op(tokens)
         new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2()),
                                  self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
@@ -534,6 +589,8 @@ class LLVMAnalyser:
     # Analyze Conversion operations
     # -----------------------------
     # analyze_trunc()
+    # analyze_fpext()
+    # analyze_sitofp()
     # analyze_bitcast()
 
     def analyze_trunc(self, tokens):
@@ -541,6 +598,20 @@ class LLVMAnalyser:
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("trunc {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()), self.rhs)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_fpext(self, tokens):
+        self.rhs = self.fpext_analyzer.analyze_fpext(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("fpext {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()), self.rhs)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_sitofp(self, tokens):
+        self.rhs = self.sitofp_analayzer.analyze_sitofp(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("sitofp {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()), self.rhs)
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     def analyze_bitcast(self, tokens):
@@ -562,6 +633,16 @@ class LLVMAnalyser:
 
     def analyze_icmp(self, tokens):
         self.rhs = self.icmp_analyzer.analyze_icmp(tokens)
+        prev_node = self.node_stack[self.opened_function][-1]
+
+        new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(),
+                                                   self.rhs.get_condition(),
+                                                   self.rhs.get_value2()),
+                                 self.rhs)
+        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+
+    def analyze_fcmp(self, tokens):
+        self.rhs = self.fcmp_analyzer.analyze_fcmp(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
 
         new_node = self.add_node("{} {} {}".format(self.rhs.get_value1(),

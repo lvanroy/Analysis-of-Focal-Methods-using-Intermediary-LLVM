@@ -50,12 +50,8 @@ class CallAnalyzer:
             argument = Argument()
 
             # read argument type
-            if tokens[1] in {"()", "()*"}:
-                argument.set_parameter_type("{} {}".format(tokens[0], tokens[1]))
-                tokens.pop(0)
-            else:
-                argument.set_parameter_type(tokens[0])
-            tokens.pop(0)
+            parameter_type, tokens = get_type(tokens)
+            argument.set_parameter_type(parameter_type)
 
             # read potential parameter attributes
             while is_parameter_attribute(tokens[0]):

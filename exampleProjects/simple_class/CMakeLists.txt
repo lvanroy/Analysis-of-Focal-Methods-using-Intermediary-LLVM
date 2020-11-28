@@ -1,3 +1,10 @@
+cmake_minimum_required(VERSION 3.10)
+project(operations CXX)
+
+# import the LLVMIRutil cmake code
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../cmake")
+include(LLVMIRutil)
+
 # Download and unpack googletest at configure time
 configure_file(CMakeLists.txt.in googletest-download/CMakeLists.txt)
 execute_process(COMMAND ${CMAKE_COMMAND} -G "${CMAKE_GENERATOR}" .
@@ -32,7 +39,8 @@ endif()
 
 # Now simply link against gtest or gtest_main as needed.
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/googletest-src/googletest/include)
-add_executable(test test.cpp)
+include_directories(${CMAKE_SOURCE_DIR}/source)
+add_executable(test source/Profile.cpp test/test.cpp)
 target_link_libraries(test gtest_main)
 
 # specify linker language, required by llvmir cmake
@@ -40,6 +48,7 @@ set_target_properties(test PROPERTIES LINKER_LANGUAGE CXX)
 set_target_properties(test PROPERTIES INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 # target_compile_options(test PUBLIC ${CMAKE_CXX_FLAGS} -flto)
+target_compile_options(test PUBLIC -fmodules-search-all)
 
 # create llvm target
 llvmir_attach_bc_target(test_bc test)
@@ -48,6 +57,7 @@ add_dependencies(test_bc test)
 # create llvm link target
 llvmir_attach_link_target(test_link test_bc)
 add_dependencies(test_link test_bc)
+
 
 # create llvm disassemble target
 llvmir_attach_disassemble_target(llvm_dis test_link)
