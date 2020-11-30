@@ -21,26 +21,28 @@ from llvmAnalyser.terminator.resume import analyze_resume
 from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer
 from llvmAnalyser.binary.fpBinaryOp import FpBinaryOpAnalyzer
 
-from llvmAnalyser.bitwiseBinary.bitwiseBinary import BitwiseBinaryAnalyzer
+from llvmAnalyser.bitwiseBinary.bitwiseBinary import analyze_bitwise_binary
 
 from llvmAnalyser.vector.extractelement import analyze_extractelement
 from llvmAnalyser.vector.insertelement import analyze_insertelement
+from llvmAnalyser.vector.shufflevector import analyze_shufflevector
 
-from llvmAnalyser.aggregate.insertvalue import InsertvalueAnalyzer
-from llvmAnalyser.aggregate.extractvalue import ExtractvalueAnalyzer
+from llvmAnalyser.aggregate.insertvalue import analyze_insertvalue
+from llvmAnalyser.aggregate.extractvalue import analyze_extractvalue
 
-from llvmAnalyser.memoryAccess.store import StoreAnalyzer
-from llvmAnalyser.memoryAccess.load import LoadAnalyzer
-from llvmAnalyser.memoryAccess.getelementptr import GetelementptrAnalyzer
+from llvmAnalyser.memoryAccess.store import analyze_store
+from llvmAnalyser.memoryAccess.load import analyze_load
+from llvmAnalyser.memoryAccess.cmpxchg import analyze_cmpxchg
+from llvmAnalyser.memoryAccess.atomicrmw import analyze_atomicrmw
+from llvmAnalyser.memoryAccess.getelementptr import analyze_getelementptr
 
-from llvmAnalyser.conversion.trunc import TruncAnalyzer
-from llvmAnalyser.conversion.fpext import FpextAnalyzer
-from llvmAnalyser.conversion.sitofp import SitofpAnalyzer
-from llvmAnalyser.conversion.bitcast import BitcastAnalyzer
+from llvmAnalyser.conversion.conversion import analyze_conversion
 
-from llvmAnalyser.other.icmp import IcmpAnalyzer
-from llvmAnalyser.other.fcmp import FcmpAnalyzer
-from llvmAnalyser.other.phi import PhiAnalyzer
+from llvmAnalyser.other.icmp import analyze_icmp
+from llvmAnalyser.other.fcmp import analyze_fcmp
+from llvmAnalyser.other.phi import analyze_phi
+from llvmAnalyser.other.select import analyze_select
+from llvmAnalyser.other.freeze import analyze_freeze
 from llvmAnalyser.other.call import CallAnalyzer, Call
 
 block_start_format = re.compile(r'[0-9]*:')
@@ -68,23 +70,6 @@ class LLVMAnalyser:
         self.binary_op_analyzer = BinaryOpAnalyzer()
         self.fp_binary_op_analyzer = FpBinaryOpAnalyzer()
 
-        self.bitwise_binary_analyzer = BitwiseBinaryAnalyzer()
-
-        self.insertvalue_analyzer = InsertvalueAnalyzer()
-        self.extractvalue_analyzer = ExtractvalueAnalyzer()
-
-        self.store_analyzer = StoreAnalyzer()
-        self.load_analyzer = LoadAnalyzer()
-        self.getelementptr_analyzer = GetelementptrAnalyzer()
-
-        self.trunc_analyzer = TruncAnalyzer()
-        self.fpext_analyzer = FpextAnalyzer()
-        self.sitofp_analayzer = SitofpAnalyzer()
-        self.bitcast_analyzer = BitcastAnalyzer()
-
-        self.icmp_analyzer = IcmpAnalyzer()
-        self.fcmp_analyzer = FcmpAnalyzer()
-        self.phi_analyzer = PhiAnalyzer()
         self.call_analyzer = CallAnalyzer()
 
         # keep track of the graph objects
@@ -133,6 +118,11 @@ class LLVMAnalyser:
             elif tokens[0] == "attributes":
                 self.analyze_attribute_group(tokens)
 
+            # skip global scope
+            elif self.opened_function is None:
+                lines.pop(0)
+                continue
+
             # Terminator instructions
             # -----------------------
             # Terminator instructions are used to end every basic block. It is used to redirect the execution
@@ -146,32 +136,32 @@ class LLVMAnalyser:
                 self.register_return()
 
             # register br statement
-            elif "br" in tokens and self.opened_function is not None:
+            elif "br" in tokens:
                 self.register_br(tokens)
 
             # register switch statement
-            elif "switch" in tokens and self.opened_function is not None:
+            elif "switch" in tokens:
                 for _ in range(3):
                     tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
                     lines.pop(1)
                 self.register_switch(tokens)
 
             # register indirectbr statement
-            elif "indirectbr" in tokens and self.opened_function is not None:
+            elif "indirectbr" in tokens:
                 self.register_indirectbr(tokens)
 
             # register invoke statement
-            elif "invoke" in tokens and self.opened_function is not None:
+            elif "invoke" in tokens:
                 tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
                 lines.pop(1)
                 self.register_invoke(tokens)
 
             # register callbr statement
-            elif "callbr" in tokens and self.opened_function is not None:
+            elif "callbr" in tokens:
                 self.register_callbr(tokens)
 
             # register resume statement
-            elif "resume" in tokens and self.opened_function is not None:
+            elif "resume" in tokens:
                 self.register_resume(tokens)
 
             # skip catchswitch
@@ -190,7 +180,7 @@ class LLVMAnalyser:
                 continue
 
             # register unreachable statement
-            elif "unreachable" in tokens and self.opened_function is not None:
+            elif "unreachable" in tokens:
                 self.register_unreachable()
 
             # Binary operations
@@ -203,13 +193,12 @@ class LLVMAnalyser:
             #       operations
 
             # register binary integer operation
-            elif len(tokens) > 2 and tokens[2] in ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"] and \
-                    self.opened_function is not None:
-                self.analyze_binary_op(tokens)
+            elif len(tokens) > 2 and tokens[2] in ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"]:
+                self.register_binary_op(tokens)
 
             # register binary floating point operations
-            elif len(tokens) > 2 and tokens[2] in ["fadd", "fsub", "fmul", "fdiv"] and self.opened_function is not None:
-                self.analyze_fp_binary_op(tokens)
+            elif len(tokens) > 2 and tokens[2] in ["fadd", "fsub", "fmul", "fdiv"]:
+                self.register_fp_binary_op(tokens)
 
             # Bitwise binary operations
             # -------------------------
@@ -219,9 +208,8 @@ class LLVMAnalyser:
             #   'sh1', 'lshr', 'ashr', 'and', 'or', 'xor'
 
             # register bitwise binary instruction
-            elif len(tokens) > 2 and tokens[2] in ["sh1", "lshr", "ashr", "and", "or", "xor"] and \
-                    self.opened_function is not None:
-                self.analyze_bitwise_binary(tokens)
+            elif len(tokens) > 2 and tokens[2] in ["sh1", "lshr", "ashr", "and", "or", "xor"]:
+                self.register_bitwise_binary(tokens)
 
             # Vector operations
             # -----------------
@@ -231,12 +219,16 @@ class LLVMAnalyser:
             #   'extractelement', 'insertelement', 'shufflevector'
 
             # register extractelement statement
-            elif "extractelement" in tokens and self.opened_function is not None:
+            elif "extractelement" in tokens:
                 self.register_extractelement(tokens)
 
             # register insertelement statement
-            elif "insertelement" in tokens and self.opened_function is not None:
+            elif "insertelement" in tokens:
                 self.register_insertelement(tokens)
+
+            # register shufflevector statement
+            elif "shufflevector" in tokens:
+                self.register_shufflevector(tokens)
 
             # Aggregate Operations
             # --------------------
@@ -245,12 +237,12 @@ class LLVMAnalyser:
             #   'extractvalue', 'insertvalue'
 
             # register extractvalue statement
-            elif "extractvalue" in tokens and self.opened_function is not None:
-                self.analyze_extractvalue(tokens)
+            elif "extractvalue" in tokens:
+                self.register_extractvalue(tokens)
 
             # register insertvalue statement
-            elif "insertvalue" in tokens and self.opened_function is not None:
-                self.analyze_insertvalue(tokens)
+            elif "insertvalue" in tokens:
+                self.register_insertvalue(tokens)
 
             # Memory Access and Addressing operations
             # ---------------------------------------
@@ -264,16 +256,28 @@ class LLVMAnalyser:
                 continue
 
             # register load statement
-            elif "load" in tokens and self.opened_function is not None:
-                self.analyze_load(tokens)
+            elif "load" in tokens:
+                self.register_load(tokens)
 
             # register store statement
-            elif "store" in tokens and self.opened_function is not None:
-                self.analyze_store(tokens)
+            elif "store" in tokens:
+                self.register_store(tokens)
+
+            # register fence statement
+            elif "fence" in tokens:
+                lines.pop(0)
+                continue
+
+            # register cmpxchg statement
+            elif "cmpxchg" in tokens:
+                self.register_cmpxchg(tokens)
+
+            elif "atomicrmw" in tokens:
+                self.register_atomicrmw(tokens)
 
             # register getelementptr statement
-            elif len(tokens) > 2 and tokens[2] == "getelementptr" and self.opened_function is not None:
-                self.analyze_getelementptr(tokens)
+            elif len(tokens) > 2 and tokens[2] == "getelementptr":
+                self.register_getelementptr(tokens)
 
             # Conversion operations
             # ---------------------
@@ -283,21 +287,12 @@ class LLVMAnalyser:
             #   'fptoui .. to', 'fptosi .. to', 'uitofp .. to', 'sitofp .. to',
             #   'ptrtoint .. to', 'inttoptr .. to', 'bitcast .. to', 'addrspacecast .. to'
 
-            # register trunc .. to statement
-            elif len(tokens) > 2 and tokens[2] == "trunc" and self.opened_function is not None:
-                self.analyze_trunc(tokens)
-
-            # register fpext .. to statement
-            elif len(tokens) > 2 and tokens[2] == "fpext" and self.opened_function is not None:
-                self.analyze_fpext(tokens)
-
-            # register sitofp .. to statement
-            elif len(tokens) > 2 and tokens[2] == "sitofp" and self.opened_function is not None:
-                self.analyze_sitofp(tokens)
-
-            # register bitcast statement
-            elif "bitcast" in tokens and self.opened_function is not None:
-                self.analyze_bitcast(tokens)
+            # register conversion statement
+            elif len(tokens) > 2 and tokens[2] in ["trunc", "zext",     "sext",     "fptrunc",
+                                                   "fpext", "fptoui",   "fptosi",   "uitofp",
+                                                   "sitofp", "ptrtoint", "inttoptr", "bitcast",
+                                                   "addrspacecast"]:
+                self.register_conversion(tokens)
 
             # other operations
             # ----------------
@@ -306,23 +301,30 @@ class LLVMAnalyser:
             #   'icmp', 'fcmp', 'phi', 'select', 'freeze', 'call', 'va_arg', 'landingpad', 'catchpad', 'cleanuppad'
 
             # register icmp statement
-            elif "icmp" in tokens and self.opened_function is not None:
-                self.analyze_icmp(tokens)
+            elif "icmp" in tokens:
+                self.register_icmp(tokens)
 
             # register fcmp statement
-            elif "fcmp" in tokens and self.opened_function is not None:
-                self.analyze_fcmp(tokens)
+            elif "fcmp" in tokens:
+                self.register_fcmp(tokens)
 
             # register phi statement
-            elif "phi" in tokens and self.opened_function is not None:
-                self.analyze_phi(tokens)
+            elif "phi" in tokens:
+                self.register_phi(tokens)
+
+            # register select statement
+            elif "select" in tokens:
+                self.register_select(tokens)
+
+            elif "freeze" in tokens:
+                self.register_freeze(tokens)
 
             # register function call
-            elif "call" in tokens and self.opened_function is not None:
+            elif "call" in tokens:
                 self.analyze_call(tokens)
 
             # register landingpad statement
-            elif "landingpad" in tokens and self.opened_function is not None:
+            elif "landingpad" in tokens:
                 while True:
                     if "catch" in lines[1]:
                         lines.pop(1)
@@ -338,7 +340,7 @@ class LLVMAnalyser:
                 continue
 
             # register new code block
-            elif block_start_format.match(tokens[0]) and self.opened_function is not None:
+            elif block_start_format.match(tokens[0]):
                 opened_block = "{}:%{}".format(self.opened_function, tokens[0].split(":")[0])
                 self.node_stack[self.opened_function].append(self.get_first_node_of_block(opened_block))
 
@@ -349,14 +351,14 @@ class LLVMAnalyser:
             elif self.opened_function is not None:
                 print("Error: unregistered instruction!")
                 print(tokens)
+                print(lines[0])
 
             if self.assignee is not None:
-                if self.opened_function is not None:
-                    new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
-                    top_node = self.node_stack[self.opened_function][-1]
-                    top_node.set_name(new_name)
-                    self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
-                    self.opened_function_memory.add_node_to_reg(self.assignee, top_node)
+                new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
+                top_node = self.node_stack[self.opened_function][-1]
+                top_node.set_name(new_name)
+                self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
+                self.opened_function_memory.add_node_to_reg(self.assignee, top_node)
 
                 self.rhs = None
                 self.assignee = None
@@ -528,32 +530,33 @@ class LLVMAnalyser:
 
     # Analyze Binary operations
     # -------------------------
-    # analyze_binary_op()
-    # analyze_fp_binary_op()
+    # register_binary_op()
+    # register_fp_binary_op()
 
-    def analyze_binary_op(self, tokens):
+    def register_binary_op(self, tokens):
         self.rhs = self.binary_op_analyzer.analyze_binary_op(tokens)
         node_name = "{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2())
         self.register_statement(node_name)
 
-    def analyze_fp_binary_op(self, tokens):
+    def register_fp_binary_op(self, tokens):
         self.rhs = self.fp_binary_op_analyzer.analyze_fp_binary_op(tokens)
         node_name = "{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2())
         self.register_statement(node_name)
 
     # Analyze Bitwise Binary operations
     # ---------------------------------
-    # analyze_xor()
+    # register_bitwise_binary()
 
-    def analyze_bitwise_binary(self, tokens):
-        self.rhs = self.bitwise_binary_analyzer.analyze_bitwise_binary(tokens)
+    def register_bitwise_binary(self, tokens):
+        self.rhs = analyze_bitwise_binary(tokens)
         node_name = "{} {} {}".format(self.rhs.op1, self.rhs.get_statement_type(), self.rhs.op2)
         self.register_statement(node_name)
 
     # Analyze Vector operations
     # -------------------------
-    # analyze_extractelement()
+    # register_extractelement()
     # register_insertelement()
+    # register_shufflevector()
 
     def register_extractelement(self, tokens):
         self.rhs = analyze_extractelement(tokens)
@@ -567,13 +570,20 @@ class LLVMAnalyser:
                                                          self.rhs.get_index())
         self.register_statement(node_name)
 
+    def register_shufflevector(self, tokens):
+        self.rhs = analyze_shufflevector(tokens)
+        node_name = "permute {} with {} using the pattern defined in {}".format(self.rhs.get_first_vector_value(),
+                                                                                self.rhs.get_second_vector_value(),
+                                                                                self.rhs.get_third_vector_value())
+        self.register_statement(node_name)
+
     # Analyze Aggregate operations
     # ----------------------------
-    # analyze_extractvalue()
-    # analyze_insertvalue()
+    # register_extractvalue()
+    # register_insertvalue()
 
-    def analyze_extractvalue(self, tokens):
-        self.rhs = self.extractvalue_analyzer.analyze_extractvalue(tokens)
+    def register_extractvalue(self, tokens):
+        self.rhs = analyze_extractvalue(tokens)
 
         node_name = "extract value from {} at index ".format(self.rhs.get_value())
         for index in self.rhs.get_indices():
@@ -581,8 +591,8 @@ class LLVMAnalyser:
 
         self.register_statement(node_name[:-2])
 
-    def analyze_insertvalue(self, tokens):
-        self.rhs = self.insertvalue_analyzer.analyze_insertvalue(tokens)
+    def register_insertvalue(self, tokens):
+        self.rhs = analyze_insertvalue(tokens)
 
         if self.rhs.get_original() != "undef":
             node_name = "insert {} in {} at index ".format(self.rhs.get_insert_value(), self.rhs.get_original())
@@ -596,23 +606,35 @@ class LLVMAnalyser:
 
     # Analyze Memory Access and Addressing operations
     # -----------------------------------------------
-    # analyze_load()
-    # analyze_store()
-    # analyze_getelementptr()
+    # register_load()
+    # register_store()
+    # register_cmpxchg()
+    # register_atomicrmw()
+    # register_getelementptr()
 
-    def analyze_load(self, tokens):
-        self.rhs = self.load_analyzer.analyze_load(tokens)
+    def register_load(self, tokens):
+        self.rhs = analyze_load(tokens)
         self.register_statement(self.rhs.get_value())
 
-    def analyze_store(self, tokens):
-        self.rhs = self.store_analyzer.analyze_store(tokens)
+    def register_store(self, tokens):
+        self.rhs = analyze_store(tokens)
         new_node = self.register_statement("{} = {}".format(self.rhs.get_register(), str(self.rhs.get_value())))
 
         self.opened_function_memory.assign_value_to_reg(self.rhs.get_register(), self.rhs.get_value())
         self.opened_function_memory.add_node_to_reg(self.rhs.get_register(), new_node)
 
-    def analyze_getelementptr(self, tokens):
-        self.rhs = self.getelementptr_analyzer.analyze_getelementptr(tokens)
+    def register_cmpxchg(self, tokens):
+        self.rhs = analyze_cmpxchg(tokens)
+        node_name = "*{0} = {2} if *{0} = {1}".format(self.rhs.get_address(), self.rhs.get_cmp(), self.rhs.get_new())
+        self.register_statement(node_name)
+
+    def register_atomicrmw(self, tokens):
+        self.rhs = analyze_atomicrmw(tokens)
+        node_name = "{0}; {1}({0}, {2})".format(self.rhs.get_address(), self.rhs.get_operation(), self.rhs.get_value())
+        self.register_statement(node_name)
+
+    def register_getelementptr(self, tokens):
+        self.rhs = analyze_getelementptr(tokens)
         node_name = "getelementptr {}".format(self.rhs.get_value())
         for idx in self.rhs.get_indices():
             node_name += "[{}]".format(idx)
@@ -620,53 +642,50 @@ class LLVMAnalyser:
 
     # Analyze Conversion operations
     # -----------------------------
-    # analyze_trunc()
-    # analyze_fpext()
-    # analyze_sitofp()
-    # analyze_bitcast()
+    # register_conversion()
 
-    def analyze_trunc(self, tokens):
-        self.rhs = self.trunc_analyzer.analyze_trunc(tokens)
-        self.register_statement("trunc {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()))
-
-    def analyze_fpext(self, tokens):
-        self.rhs = self.fpext_analyzer.analyze_fpext(tokens)
-        self.register_statement("fpext {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()))
-
-    def analyze_sitofp(self, tokens):
-        self.rhs = self.sitofp_analayzer.analyze_sitofp(tokens)
-        self.register_statement("sitofp {} to {}".format(self.rhs.get_value(), self.rhs.get_final_type()))
-
-    def analyze_bitcast(self, tokens):
-        self.rhs = self.bitcast_analyzer.analyze_bitcast(tokens)
-        self.register_statement("bitcast {} from {} to {}".format(self.rhs.get_value(),
-                                                                  self.rhs.get_original_type(),
-                                                                  self.rhs.get_final_type()))
+    def register_conversion(self, tokens):
+        self.rhs = analyze_conversion(tokens)
+        node_name = "{} {} to {}".format(self.rhs.get_operation(), self.rhs.get_value(), self.rhs.get_final_type())
+        self.register_statement(node_name)
 
     # Analyze Other operations
     # ------------------------
-    # analyze_icmp()
-    # analyze_phi()
-    # analyze_call()
-    # analyze_landingpad()
+    # register_icmp()
+    # register_fcmp()
+    # register_phi()
+    # register_select()
+    # register_freeze()
+    # register_call()
+    # register_landingpad()
 
-    def analyze_icmp(self, tokens):
-        self.rhs = self.icmp_analyzer.analyze_icmp(tokens)
+    def register_icmp(self, tokens):
+        self.rhs = analyze_icmp(tokens)
         self.register_statement("{} {} {}".format(self.rhs.get_value1(),
                                                   self.rhs.get_condition(),
                                                   self.rhs.get_value2()))
 
-    def analyze_fcmp(self, tokens):
-        self.rhs = self.fcmp_analyzer.analyze_fcmp(tokens)
+    def register_fcmp(self, tokens):
+        self.rhs = analyze_fcmp(tokens)
         self.register_statement("{} {} {}".format(self.rhs.get_value1(),
                                                   self.rhs.get_condition(),
                                                   self.rhs.get_value2()))
 
-    def analyze_phi(self, tokens):
-        self.rhs = self.phi_analyzer.analyze_phi(tokens)
+    def register_phi(self, tokens):
+        self.rhs = analyze_phi(tokens)
         node_name = ""
         for option in self.rhs.get_options():
             node_name += "{} if prev= {}".format(option.get_value(), option.get_label())
+        self.register_statement(node_name)
+
+    def register_select(self, tokens):
+        self.rhs = analyze_select(tokens)
+        node_name = "select {} if {} else {}".format(self.rhs.get_val1(), self.rhs.get_condition(), self.rhs.get_val2())
+        self.register_statement(node_name)
+
+    def register_freeze(self, tokens):
+        self.rhs = analyze_freeze(tokens)
+        node_name = "freeze {}".format(self.rhs.get_value())
         self.register_statement(node_name)
 
     def analyze_call(self, tokens):

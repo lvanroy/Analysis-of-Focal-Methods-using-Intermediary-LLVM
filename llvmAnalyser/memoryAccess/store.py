@@ -2,37 +2,32 @@ from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
-class StoreAnalyzer:
-    def __init__(self):
-        pass
+def analyze_store(tokens):
+    store = Store()
 
-    @staticmethod
-    def analyze_store(tokens):
-        store = Store()
+    # pop the store instruction
+    tokens.pop(0)
 
-        # pop the store instruction
+    # check for atomic
+    if tokens[0] == "atomic":
         tokens.pop(0)
 
-        # check for atomic
-        if tokens[0] == "atomic":
-            tokens.pop(0)
-
-        # check for volatile
-        if tokens[0] == "volatile":
-            tokens.pop(0)
-
-        # skip type
-        _, tokens = get_type(tokens)
-
-        store.set_value(Value(tokens[0].replace(",", "")))
+    # check for volatile
+    if tokens[0] == "volatile":
         tokens.pop(0)
 
-        # skip type
-        _, tokens = get_type(tokens)
+    # skip type
+    _, tokens = get_type(tokens)
 
-        store.set_register(tokens[0].replace(",", ""))
+    store.set_value(Value(tokens[0].replace(",", "")))
+    tokens.pop(0)
 
-        return store
+    # skip type
+    _, tokens = get_type(tokens)
+
+    store.set_register(tokens[0].replace(",", ""))
+
+    return store
 
 
 class Store(LlvmStatement):

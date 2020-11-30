@@ -12,45 +12,40 @@ from llvmAnalyser.llvmStatement import LlvmStatement
 # xor:  <result> = xor <ty> <op1>, <op2>
 
 
-class BitwiseBinaryAnalyzer:
-    def __init__(self):
-        pass
+def analyze_bitwise_binary(tokens):
+    statement = BitwiseBinaryStatement()
 
-    @staticmethod
-    def analyze_bitwise_binary(tokens):
-        statement = BitwiseBinaryStatement()
+    # pop the potential assignment
+    while tokens[0] not in ["shl", "lshr", "ashr", "and", "or", "xor"]:
+        tokens.pop(0)
 
-        # pop the potential assignment
-        while tokens[0] not in ["shl", "lshr", "ashr", "and", "or", "xor"]:
-            tokens.pop(0)
+    # pop the bin instruction
+    statement.set_statement_type(tokens.pop(0))
 
-        # pop the bin instruction
-        statement.set_statement_type(tokens.pop(0))
+    # pop potential nuw token
+    if tokens[0] == "nuw":
+        tokens.pop(0)
 
-        # pop potential nuw token
-        if tokens[0] == "nuw":
-            tokens.pop(0)
+    # pop potential nsw token
+    if tokens[0] == "nsw":
+        tokens.pop(0)
 
-        # pop potential nsw token
-        if tokens[0] == "nsw":
-            tokens.pop(0)
+    # pop potential exact token
+    if tokens[0] == "exact":
+        tokens.pop(0)
 
-        # pop potential exact token
-        if tokens[0] == "exact":
-            tokens.pop(0)
+    # pop the type
+    _, tokens = get_type(tokens)
 
-        # pop the type
-        _, tokens = get_type(tokens)
+    # get the first operand
+    op1, tokens = get_value(tokens)
+    statement.set_op1(op1)
 
-        # get the first operand
-        op1, tokens = get_value(tokens)
-        statement.set_op1(op1)
+    # get the second operand
+    op2, tokens = get_value(tokens)
+    statement.set_op2(op2)
 
-        # get the second operand
-        op2, tokens = get_value(tokens)
-        statement.set_op2(op2)
-
-        return statement
+    return statement
 
 
 class BitwiseBinaryStatement(LlvmStatement):

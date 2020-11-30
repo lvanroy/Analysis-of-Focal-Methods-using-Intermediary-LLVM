@@ -2,40 +2,35 @@ from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
-class IcmpAnalyzer:
-    def __init__(self):
-        pass
+def analyze_icmp(tokens):
+    icmp = Icmp()
 
-    @staticmethod
-    def analyze_icmp(tokens):
-        icmp = Icmp()
-
-        # pop the potential assignment instruction
-        while tokens[0] != "icmp":
-            tokens.pop(0)
-
-        # pop the icmp instruction
+    # pop the potential assignment instruction
+    while tokens[0] != "icmp":
         tokens.pop(0)
 
-        # get the condition
-        icmp.set_condition(tokens.pop(0))
+    # pop the icmp instruction
+    tokens.pop(0)
 
-        # pop the type
-        _, tokens = get_type(tokens)
+    # get the condition
+    icmp.set_condition(tokens.pop(0))
 
-        # get the first value
-        value1 = ""
-        while "," not in tokens[0]:
-            value1 += tokens.pop(0)
-        value1 += tokens.pop(0).replace(",", "")
-        icmp.set_value1(value1)
+    # pop the type
+    _, tokens = get_type(tokens)
 
-        value2 = ""
-        while tokens:
-            value2 += tokens.pop(0)
-        icmp.set_value2(value2)
+    # get the first value
+    value1 = ""
+    while "," not in tokens[0]:
+        value1 += tokens.pop(0)
+    value1 += tokens.pop(0).replace(",", "")
+    icmp.set_value1(value1)
 
-        return icmp
+    value2 = ""
+    while tokens:
+        value2 += tokens.pop(0)
+    icmp.set_value2(value2)
+
+    return icmp
 
 
 class Icmp(LlvmStatement):

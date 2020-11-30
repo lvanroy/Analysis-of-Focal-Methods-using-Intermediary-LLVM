@@ -9,46 +9,41 @@ addresses.
 '''
 
 
-class GetelementptrAnalyzer:
-    def __init__(self):
-        pass
+def analyze_getelementptr(tokens: list):
+    op = Getelementptr()
 
-    @staticmethod
-    def analyze_getelementptr(tokens: list):
-        op = Getelementptr()
-
-        # skip potential assignment tokens
-        while tokens[0] != "getelementptr":
-            tokens.pop(0)
-
-        # pop getelementptr
+    # skip potential assignment tokens
+    while tokens[0] != "getelementptr":
         tokens.pop(0)
 
-        # pop a potential inbounds keyword
-        if tokens[0] == "inbounds":
+    # pop getelementptr
+    tokens.pop(0)
+
+    # pop a potential inbounds keyword
+    if tokens[0] == "inbounds":
+        tokens.pop(0)
+
+    # pop the type
+    _, tokens = get_type(tokens)
+
+    # pop the second type
+    _, tokens = get_type(tokens)
+
+    # get the value
+    op.set_value(tokens.pop(0).replace(",", ""))
+
+    # access potential further indices
+    while len(tokens) != 0:
+        if tokens[0] == "inrange":
             tokens.pop(0)
 
-        # pop the type
+        # get the index type
         _, tokens = get_type(tokens)
 
-        # pop the second type
-        _, tokens = get_type(tokens)
+        # get the index value
+        op.add_index(tokens.pop(0))
 
-        # get the value
-        op.set_value(tokens.pop(0).replace(",", ""))
-
-        # access potential further indices
-        while len(tokens) != 0:
-            if tokens[0] == "inrange":
-                tokens.pop(0)
-
-            # get the index type
-            _, tokens = get_type(tokens)
-
-            # get the index value
-            op.add_index(tokens.pop(0))
-
-        return op
+    return op
 
 
 class Getelementptr(LlvmStatement):

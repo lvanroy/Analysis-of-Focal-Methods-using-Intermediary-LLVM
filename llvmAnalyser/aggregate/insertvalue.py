@@ -1,40 +1,36 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
 
-class InsertvalueAnalyzer:
-    def __init__(self):
-        pass
 
-    @staticmethod
-    def analyze_insertvalue(tokens):
-        insertvalue_instruction = Insertvalue()
+def analyze_insertvalue(tokens):
+    insertvalue_instruction = Insertvalue()
 
-        # pop the assignment segment
-        while tokens[0] != "insertvalue":
-            tokens.pop(0)
-
-        # pop the insertvalue instruction
+    # pop the assignment segment
+    while tokens[0] != "insertvalue":
         tokens.pop(0)
 
-        # get the object type
-        object_type, tokens = get_type(tokens)
-        insertvalue_instruction.set_object_type(object_type)
+    # pop the insertvalue instruction
+    tokens.pop(0)
 
-        # get the original object
-        insertvalue_instruction.set_original(tokens[0].replace(",", ""))
+    # get the object type
+    object_type, tokens = get_type(tokens)
+    insertvalue_instruction.set_object_type(object_type)
+
+    # get the original object
+    insertvalue_instruction.set_original(tokens[0].replace(",", ""))
+    tokens.pop(0)
+
+    # get the type and value that is to be inserted
+    insert_type, tokens = get_type(tokens)
+    insertvalue_instruction.set_insert_type(insert_type)
+    insertvalue_instruction.set_insert_value(tokens[0].replace(",", ""))
+    tokens.pop(0)
+
+    while len(tokens) != 0:
+        insertvalue_instruction.add_index(tokens[0].replace(",", ""))
         tokens.pop(0)
 
-        # get the type and value that is to be inserted
-        insert_type, tokens = get_type(tokens)
-        insertvalue_instruction.set_insert_type(insert_type)
-        insertvalue_instruction.set_insert_value(tokens[0].replace(",", ""))
-        tokens.pop(0)
-
-        while len(tokens) != 0:
-            insertvalue_instruction.add_index(tokens[0].replace(",", ""))
-            tokens.pop(0)
-
-        return insertvalue_instruction
+    return insertvalue_instruction
 
 
 class Insertvalue(LlvmStatement):

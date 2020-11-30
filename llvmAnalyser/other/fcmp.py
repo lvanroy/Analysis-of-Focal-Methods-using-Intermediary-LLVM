@@ -3,44 +3,39 @@ from llvmAnalyser.llvmStatement import LlvmStatement
 from llvmAnalyser.llvmchecker import is_fast_math_flag
 
 
-class FcmpAnalyzer:
-    def __init__(self):
-        pass
+def analyze_fcmp(tokens):
+    fcmp = Fcmp()
 
-    @staticmethod
-    def analyze_fcmp(tokens):
-        fcmp = Fcmp()
-
-        # pop the potential assignment instruction
-        while tokens[0] != "fcmp":
-            tokens.pop(0)
-
-        # pop the fcmp instruction
+    # pop the potential assignment instruction
+    while tokens[0] != "fcmp":
         tokens.pop(0)
 
-        # pop potential fast-math flags
-        while is_fast_math_flag(tokens[0]):
-            tokens.pop(0)
+    # pop the fcmp instruction
+    tokens.pop(0)
 
-        # get the condition
-        fcmp.set_condition(tokens.pop(0))
+    # pop potential fast-math flags
+    while is_fast_math_flag(tokens[0]):
+        tokens.pop(0)
 
-        # pop the type
-        _, tokens = get_type(tokens)
+    # get the condition
+    fcmp.set_condition(tokens.pop(0))
 
-        # get the first value
-        value1 = ""
-        while "," not in tokens[0]:
-            value1 += tokens.pop(0)
-        value1 += tokens.pop(0).replace(",", "")
-        fcmp.set_value1(value1)
+    # pop the type
+    _, tokens = get_type(tokens)
 
-        value2 = ""
-        while tokens:
-            value2 += tokens.pop(0)
-        fcmp.set_value2(value2)
+    # get the first value
+    value1 = ""
+    while "," not in tokens[0]:
+        value1 += tokens.pop(0)
+    value1 += tokens.pop(0).replace(",", "")
+    fcmp.set_value1(value1)
 
-        return fcmp
+    value2 = ""
+    while tokens:
+        value2 += tokens.pop(0)
+    fcmp.set_value2(value2)
+
+    return fcmp
 
 
 class Fcmp(LlvmStatement):

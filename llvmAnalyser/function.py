@@ -186,6 +186,8 @@ class FunctionHandler:
         if not finished:
             print("analysis did not finish for function: {}".format(func.function_name))
             print(tokens)
+        else:
+            tokens.pop(0)
 
         self.functions[func.function_name] = func
 

@@ -9,53 +9,48 @@ based upon the block it was in before the current block
 '''
 
 
-class PhiAnalyzer:
-    def __init__(self):
-        pass
+def analyze_phi(tokens):
+    phi = Phi()
 
-    @staticmethod
-    def analyze_phi(tokens):
-        phi = Phi()
-
-        # pop the potential assignment section
-        while tokens[0] != "phi":
-            tokens.pop(0)
-
-        # pop the phi instruction
+    # pop the potential assignment section
+    while tokens[0] != "phi":
         tokens.pop(0)
 
-        # pop the potential fast math flags
-        while is_fast_math_flag(tokens[0]):
-            tokens.pop(0)
+    # pop the phi instruction
+    tokens.pop(0)
 
-        # pop the return type
-        _, tokens = get_type(tokens)
+    # pop the potential fast math flags
+    while is_fast_math_flag(tokens[0]):
+        tokens.pop(0)
 
-        while tokens:
-            option = PhiOption()
+    # pop the return type
+    _, tokens = get_type(tokens)
 
-            # pop the '[' token
-            tokens.pop(0)
+    while tokens:
+        option = PhiOption()
 
-            # get the value
-            value = ""
-            while "," not in tokens[0]:
-                value += tokens.pop(0)
-            tokens.pop(0).replace(",", "")
-            option.set_value(value)
+        # pop the '[' token
+        tokens.pop(0)
 
-            # get the label
-            label = ""
-            while "]" not in tokens[0]:
-                label += tokens.pop(0)
-            option.set_label(label)
+        # get the value
+        value = ""
+        while "," not in tokens[0]:
+            value += tokens.pop(0)
+        tokens.pop(0).replace(",", "")
+        option.set_value(value)
 
-            # pop the ']' token
-            tokens.pop(0)
+        # get the label
+        label = ""
+        while "]" not in tokens[0]:
+            label += tokens.pop(0)
+        option.set_label(label)
 
-            phi.add_option(option)
+        # pop the ']' token
+        tokens.pop(0)
 
-        return phi
+        phi.add_option(option)
+
+    return phi
 
 
 class Phi(LlvmStatement):

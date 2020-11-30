@@ -3,32 +3,27 @@ from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
-class ExtractvalueAnalyzer:
-    def __init__(self):
-        pass
+def analyze_extractvalue(tokens):
+    extractvalue = Extractvalue()
 
-    @staticmethod
-    def analyze_extractvalue(tokens):
-        extractvalue = Extractvalue()
-
-        # skip initial assignment part
-        while tokens[0] != "extractvalue":
-            tokens.pop(0)
-
-        # pop the extractvalue token
+    # skip initial assignment part
+    while tokens[0] != "extractvalue":
         tokens.pop(0)
 
-        # pop the type
-        _, tokens = get_type(tokens)
+    # pop the extractvalue token
+    tokens.pop(0)
 
-        # get the value
-        extractvalue.set_value(tokens.pop(0).replace(",", ""))
+    # pop the type
+    _, tokens = get_type(tokens)
 
-        # get the indices
-        while len(tokens) != 0:
-            extractvalue.add_index(tokens.pop(0).replace(",", ""))
+    # get the value
+    extractvalue.set_value(tokens.pop(0).replace(",", ""))
 
-        return extractvalue
+    # get the indices
+    while len(tokens) != 0:
+        extractvalue.add_index(tokens.pop(0).replace(",", ""))
+
+    return extractvalue
 
 
 class Extractvalue(LlvmStatement):

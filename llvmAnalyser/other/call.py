@@ -12,7 +12,6 @@ class CallAnalyzer:
     @staticmethod
     def analyze_call(tokens: list):
         call = Call()
-        print(tokens)
 
         # skip all initial tokens
         while tokens[0] != "call":
@@ -49,7 +48,6 @@ class CallAnalyzer:
 
         # read the argument list
         while "(" in tokens[0] or ")" not in tokens[0]:
-            print("start: {}".format(tokens))
             argument = Argument()
 
             # read argument type
