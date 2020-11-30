@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
@@ -25,12 +26,12 @@ class BinaryOpAnalyzer:
         # pop the operation
         op.set_op(self.op_symbols[tokens.pop(0)])
 
-        # pop potential nsw token
-        if tokens[0] == "nsw":
-            tokens.pop(0)
-
         # pop potential nuw token
         if tokens[0] == "nuw":
+            tokens.pop(0)
+
+        # pop potential nsw token
+        if tokens[0] == "nsw":
             tokens.pop(0)
 
         # pop potential exact token
@@ -41,14 +42,11 @@ class BinaryOpAnalyzer:
         _, tokens = get_type(tokens)
 
         # get the first op
-        value1 = ""
-        while "," not in tokens[0]:
-            value1 += tokens.pop(0)
-        value1 += tokens.pop(0).replace(",", "")
+        value1, tokens = get_value(tokens)
         op.set_value1(value1)
 
         # get the second op
-        value2 = "".join(tokens)
+        value2, tokens = get_value(tokens)
         op.set_value2(value2)
 
         return op

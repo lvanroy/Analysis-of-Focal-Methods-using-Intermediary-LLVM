@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 from llvmAnalyser.llvmchecker import is_fast_math_flag
 
@@ -24,15 +25,10 @@ def analyze_fcmp(tokens):
     _, tokens = get_type(tokens)
 
     # get the first value
-    value1 = ""
-    while "," not in tokens[0]:
-        value1 += tokens.pop(0)
-    value1 += tokens.pop(0).replace(",", "")
+    value1, tokens = get_value(tokens)
     fcmp.set_value1(value1)
 
-    value2 = ""
-    while tokens:
-        value2 += tokens.pop(0)
+    value2, tokens = get_value(tokens)
     fcmp.set_value2(value2)
 
     return fcmp

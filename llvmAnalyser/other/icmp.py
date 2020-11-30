@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
@@ -19,15 +20,11 @@ def analyze_icmp(tokens):
     _, tokens = get_type(tokens)
 
     # get the first value
-    value1 = ""
-    while "," not in tokens[0]:
-        value1 += tokens.pop(0)
-    value1 += tokens.pop(0).replace(",", "")
+    value1, tokens = get_value(tokens)
     icmp.set_value1(value1)
 
-    value2 = ""
-    while tokens:
-        value2 += tokens.pop(0)
+    # get the second value
+    value2, tokens = get_value(tokens)
     icmp.set_value2(value2)
 
     return icmp

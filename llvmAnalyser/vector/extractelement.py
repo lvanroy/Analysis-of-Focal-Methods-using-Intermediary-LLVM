@@ -24,14 +24,15 @@ def analyze_extractelement(tokens):
     statement.set_vector_type(vector_type)
 
     # pop the value token
-    vector_value = get_value(tokens)
+    vector_value, tokens = get_value(tokens)
     statement.set_vector_value(vector_value)
 
     # pop the type token
     _, tokens = get_type(tokens)
 
     # get the index
-    statement.set_index(tokens.pop(0))
+    index_value, tokens = get_value(tokens)
+    statement.set_index(index_value)
 
     return statement
 

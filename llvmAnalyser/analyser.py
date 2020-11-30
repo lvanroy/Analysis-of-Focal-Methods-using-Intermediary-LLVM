@@ -335,7 +335,19 @@ class LLVMAnalyser:
                     else:
                         break
 
-                self.analyze_landingpad()
+                self.assignee = None
+                lines.pop(0)
+                continue
+
+            # register catchpad statement
+            elif "catchpad" in tokens:
+                self.assignee = None
+                lines.pop(0)
+                continue
+
+            # register clenuppad statement
+            elif "cleanuppad" in tokens:
+                self.assignee = None
                 lines.pop(0)
                 continue
 
@@ -657,7 +669,6 @@ class LLVMAnalyser:
     # register_select()
     # register_freeze()
     # register_call()
-    # register_landingpad()
 
     def register_icmp(self, tokens):
         self.rhs = analyze_icmp(tokens)
@@ -706,12 +717,6 @@ class LLVMAnalyser:
             self.top_graph_nodes[function_name] = final_node
         first_node = self.top_graph_nodes[self.opened_function]
         self.top_graph.add_edge(first_node, final_node)
-
-    def analyze_landingpad(self):
-        prev_node = self.node_stack[self.opened_function][-1]
-
-        new_node = self.add_node("landingpad")
-        self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
     # analyze assignment
     # ------------------

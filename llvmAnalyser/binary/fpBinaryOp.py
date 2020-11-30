@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 from llvmAnalyser.llvmchecker import is_fast_math_flag
 
@@ -31,14 +32,11 @@ class FpBinaryOpAnalyzer:
         _, tokens = get_type(tokens)
 
         # get the first op
-        value1 = ""
-        while "," not in tokens[0]:
-            value1 += tokens.pop(0)
-        value1 += tokens.pop(0).replace(",", "")
+        value1, tokens = get_value(tokens)
         op.set_value1(value1)
 
         # get the second op
-        value2 = "".join(tokens)
+        value2, tokens = get_value(tokens)
         op.set_value2(value2)
 
         return op
