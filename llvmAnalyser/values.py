@@ -1,5 +1,6 @@
 import re
 from llvmAnalyser.types import get_type
+from llvmAnalyser.llvmchecker import is_fast_math_flag
 
 # this function accepts a chain of tokens and will return the defined value within it
 # the value needs to start on the first token
@@ -66,6 +67,23 @@ def get_value(tokens):
 
     if value == "getelementptr":
         return get_value_from_getelementptr(value, tokens), tokens
+
+    if value == "select":
+        return get_value_from_select(value, tokens), tokens
+
+    if value in ["icmp", "fcmp"]:
+        return get_value_from_icmp_or_fcmp(value, tokens), tokens
+
+    if value in ["extractelement", "insertelement", "shufflevector"]:
+        return get_value_from_vector_op(value, tokens), tokens
+
+    if value in ["extractvalue", "insertvalue"]:
+        return get_value_from_aggregate_op(value, tokens), tokens
+
+    if value in ["add", "fadd", "sub", "fsub",
+                 "mul", "fmul", "udiv", "sdiv",
+                 "fdiv", "urem", "srem", "frem"]:
+        return get_value_from_bianry_op(value, tokens), tokens
 
     # read construct value
     while True:
@@ -137,5 +155,129 @@ def get_value_from_getelementptr(value, tokens):
 
         # get the index value
         value += " {}".format(tokens.pop(0))
+
+    return value
+
+
+def get_value_from_select(value, tokens):
+    # pop the potential fast-math flags
+    while is_fast_math_flag(tokens[0]):
+        value += " {}".format(tokens.pop(0))
+
+    # get the condition
+    ctype, tokens = get_type(tokens)
+    value += " {}".format(ctype)
+    condition, tokens = get_value(tokens)
+    value += " {},".format(condition)
+
+    # get the if true option
+    ttype, tokens = get_type(tokens)
+    value += " {}".format(ttype)
+    val1, tokens = get_value(tokens)
+    value += " {},".format(val1)
+
+    # get the if false option
+    ftype, tokens = get_type(tokens)
+    value += " {}".format(ftype)
+    val2, tokens = get_value(tokens)
+    value += " {}".format(val2)
+
+    return value
+
+
+def get_value_from_icmp_or_fcmp(value, tokens):
+    # get the condition
+    value += " {}".format(tokens.pop(0))
+
+    # get the type
+    optype, tokens = get_type(tokens)
+    value += " {}".format(optype)
+
+    # get the first value
+    value1, tokens = get_value(tokens)
+    value += " {},".format(value1)
+
+    value2, tokens = get_value(tokens)
+    value += " {}".format(value2)
+
+    return value
+
+
+def get_value_from_vector_op(value, tokens):
+    op_type = value
+
+    # get the first type value pair
+    vector_type, tokens = get_type(tokens)
+    value += " {}".format(vector_type)
+    vector_value, tokens = get_value(tokens)
+    value += " {},".format(vector_value)
+
+    # get the second type value pair
+    index_type, tokens = get_type(tokens)
+    value += " {}".format(index_type)
+    index_value, tokens = get_value(tokens)
+    value += " {}".format(index_value)
+
+    # if there is a third pair, get the third type value pair
+    if op_type in ["insertelement", "shufflevector"]:
+        index_type, tokens = get_type(tokens)
+        value += ", {}".format(index_type)
+        index_value, tokens = get_value(tokens)
+        value += " {}".format(index_value)
+
+    return value
+
+
+def get_value_from_aggregate_op(value, tokens):
+    op_type = value
+
+    # get the first type value pair
+    struct_type, tokens = get_type(tokens)
+    struct_value, tokens = get_value(tokens)
+    value += " {}".format(struct_type)
+    value += " {},".format(struct_value)
+
+    # if insertvalue, get the value you want to insert
+    if op_type == "insertvalue":
+        insert_type, tokens = get_type(tokens)
+        insert_value, tokens = get_value(tokens)
+        value += " {}".format(insert_type)
+        value += " {},".format(insert_value)
+
+    # get the indices
+    while value[-1] == ",":
+        value += " {}".format(tokens.pop(0))
+
+    return value
+
+
+def get_value_from_bianry_op(value, tokens):
+    # pop potential nuw token
+    if tokens[0] == "nuw":
+        value += " {}".format(tokens.pop(0))
+
+    # pop potential nsw token
+    if tokens[0] == "nsw":
+        value += " {}".format(tokens.pop(0))
+
+    # pop potential exact token
+    if tokens[0] == "exact":
+        value += " {}".format(tokens.pop(0))
+
+    # pop potential fastmath flags
+    while is_fast_math_flag(tokens[0]):
+        value += " {}".format(tokens.pop(0))
+
+    # get the type
+    value_type, tokens = get_type(tokens)
+    value += " {}".format(value_type)
+
+    # get the first op
+    value1, tokens = get_value(tokens)
+    value += " {},".format(value1)
+
+    # get the second op
+    value2, tokens = get_value(tokens)
+    value += " {}".format(value2)
 
     return value

@@ -120,8 +120,8 @@ class TestLLVMValues(unittest.TestCase):
         self.assertEqual(result[0], "getelementptr inbounds [5 x i8*], [5 x i8*]* @_ZTV9Rectangle, i32 0, i32 2")
 
     def test_const_other(self):
-        result = get_value(["%X", "=", "select", "i1", "true,", "i8", "17,", "i8", "42"])
-        self.assertEqual(result[0], "%X = select i1 true, i8 17, i8 42")
+        result = get_value(["select", "i1", "true,", "i8", "17,", "i8", "42"])
+        self.assertEqual(result[0], "select i1 true, i8 17, i8 42")
 
         result = get_value(["icmp", "eq", "i32", "4,", "5"])
         self.assertEqual(result[0], "icmp eq i32 4, 5")
@@ -146,4 +146,42 @@ class TestLLVMValues(unittest.TestCase):
         result = get_value(["extractvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "0"])
         self.assertEqual(result[0], "extractvalue {i32, float} {i32 4, float 17.0}, 0")
 
-        result = get_value(["insertvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "0"])
+        result = get_value(["insertvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "i32", "4,", "0"])
+        self.assertEqual(result[0], "insertvalue {i32, float} {i32 4, float 17.0}, i32 4, 0")
+
+    def test_const_opcode(self):
+        result = get_value(["add", "i32", "4,", "5"])
+        self.assertEqual(result[0], "add i32 4, 5")
+
+        result = get_value(["fadd", "float", "4.0,", "5.3"])
+        self.assertEqual(result[0], "fadd float 4.0, 5.3")
+
+        result = get_value(["sub", "nuw", "nsw", "i32", "4,", "2"])
+        self.assertEqual(result[0], "sub nuw nsw i32 4, 2")
+
+        result = get_value(["fsub", "nnan", "float", "4.0,", "2.2"])
+        self.assertEqual(result[0], "fsub nnan float 4.0, 2.2")
+
+        result = get_value(["mul", "nuw", "i32", "4,", "2"])
+        self.assertEqual(result[0], "mul nuw i32 4, 2")
+
+        result = get_value(["fmul", "nnan", "ninf", "float", "5.5,", "2.0"])
+        self.assertEqual(result[0], "fmul nnan ninf float 5.5, 2.0")
+
+        result = get_value(["udiv", "i32", "4,", "2"])
+        self.assertEqual(result[0], "udiv i32 4, 2")
+
+        result = get_value(["sdiv", "exact", "i32", "4,", "3"])
+        self.assertEqual(result[0], "sdiv exact i32 4, 3")
+
+        result = get_value(["fdiv", "float", "4.0,", "2.0"])
+        self.assertEqual(result[0], "fdiv float 4.0, 2.0")
+
+        result = get_value(["urem", "i32", "4,", "3"])
+        self.assertEqual(result[0], "urem i32 4, 3")
+
+        result = get_value(["srem", "i32", "4,", "3"])
+        self.assertEqual(result[0], "srem i32 4, 3")
+
+        result = get_value(["frem", "float", "4.0,", "3.0"])
+        self.assertEqual(result[0], "frem float 4.0, 3.0")
