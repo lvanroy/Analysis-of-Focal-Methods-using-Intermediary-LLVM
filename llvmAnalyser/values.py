@@ -59,10 +59,13 @@ def get_value(tokens):
         value = remove_trailing_char(value)
         return value, tokens
 
-    if value in ["trunc",    "zext",    "sext",          "fptrunc",       "fpext",
-                 "fptoui",   "fptosi",  "uitofp",        "sitofp",        "ptrtoint",
+    if value in ["trunc", "zext", "sext", "fptrunc", "fpext",
+                 "fptoui", "fptosi", "uitofp", "sitofp", "ptrtoint",
                  "inttoptr", "bitcast", "addrspacecast"]:
         return get_value_from_conversion(value, tokens), tokens
+
+    if value == "getelementptr":
+        return get_value_from_getelementptr(value, tokens), tokens
 
     # read construct value
     while True:
@@ -104,3 +107,35 @@ def get_value_from_conversion(op, tokens):
         tokens.pop(0)
 
     return op
+
+
+def get_value_from_getelementptr(value, tokens):
+    # pop a potential inbounds keyword
+    if tokens[0] == "inbounds":
+        value += " {}".format(tokens.pop(0))
+
+    # get the type
+    type1, tokens = get_type(tokens)
+    value += " {},".format(type1)
+
+    # get the second type
+    type2, tokens = get_type(tokens)
+    value += " {}".format(type2)
+
+    # get the value
+    const_val, tokens = get_value(tokens)
+    value += " {},".format(const_val)
+
+    # access potential further indices
+    while value[-1] == ",":
+        if tokens[0] == "inrange":
+            value += " {}".format(tokens.pop(0))
+
+        # get the index type
+        idx_type, tokens = get_type(tokens)
+        value += " {}".format(idx_type)
+
+        # get the index value
+        value += " {}".format(tokens.pop(0))
+
+    return value

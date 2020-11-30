@@ -73,7 +73,7 @@ class TestLLVMValues(unittest.TestCase):
     def test_blockaddress(self):
         self.assertEqual(get_value(["blockaddress(@function,", "%block)"])[0], "blockaddress(@function, %block)")
 
-    def test_const_expressions(self):
+    def test_const_conversion(self):
         result = get_value(["trunc", "i32", "257", "to", "i8"])
         self.assertEqual(result[0], "trunc i32 257 to i8")
 
@@ -114,3 +114,36 @@ class TestLLVMValues(unittest.TestCase):
         result = get_value(["addrspacecast", "<4 x i32*>", "%z", "to", "<4", "x", "float", "addrspace(3)*>"])
         self.assertEqual(result[0], "addrspacecast <4 x i32*> %z to <4 x float addrspace(3)*>")
 
+    def test_const_getelementptr(self):
+        result = get_value(["getelementptr", "inbounds", "[5", "x", "i8*],", "[5", "x", "i8*]*", "@_ZTV9Rectangle,",
+                            "i32", "0,", "i32", "2"])
+        self.assertEqual(result[0], "getelementptr inbounds [5 x i8*], [5 x i8*]* @_ZTV9Rectangle, i32 0, i32 2")
+
+    def test_const_other(self):
+        result = get_value(["%X", "=", "select", "i1", "true,", "i8", "17,", "i8", "42"])
+        self.assertEqual(result[0], "%X = select i1 true, i8 17, i8 42")
+
+        result = get_value(["icmp", "eq", "i32", "4,", "5"])
+        self.assertEqual(result[0], "icmp eq i32 4, 5")
+
+        result = get_value(["fcmp", "oeq", "float", "4.0,", "5.0"])
+        self.assertEqual(result[0], "fcmp oeq float 4.0, 5.0")
+
+    def test_const_vector_op(self):
+        result = get_value(["extractelement", "<2 x i32>", "<i32", "42,", "i32", "11>,", "i32", "0"])
+        self.assertEqual(result[0], "extractelement <2 x i32> <i32 42, i32 11>, i32 0")
+
+        result = get_value(["insertelement", "<2 x i32>", "<i32", "42,", "i32", "11>,", "i32", "1,", "i32", "0"])
+        self.assertEqual(result[0], "insertelement <2 x i32> <i32 42, i32 11>, i32 1, i32 0")
+
+        result = get_value(["shufflevector", "<2", "x", "i32>", "<i32", "42,", "i32", "11>,",
+                            "<1", "x", "i32>", "<i32", "5>,",
+                            "<3", "x", "i32>", "<i32", "0,", "i32", "2,", "i32", "1>"])
+        self.assertEqual(result[0], "shufflevector <2 x i32> <i32 42, i32 11>, <1 x i32> <i32 5>, "
+                                    "<3 x i32> <i32 0, i32 2, i32 1>")
+
+    def test_const_aggregate_op(self):
+        result = get_value(["extractvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "0"])
+        self.assertEqual(result[0], "extractvalue {i32, float} {i32 4, float 17.0}, 0")
+
+        result = get_value(["insertvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "0"])
