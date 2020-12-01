@@ -1,41 +1,52 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
+from llvmAnalyser.llvmchecker import is_fast_math_flag
 
 
-def analyze_icmp(tokens):
-    icmp = Icmp()
+def analyze_cmp(tokens):
+    cmp = Cmp()
 
     # pop the potential assignment instruction
-    while tokens[0] != "icmp":
+    while tokens[0] not in ["fcmp", "icmp"]:
         tokens.pop(0)
 
-    # pop the icmp instruction
-    tokens.pop(0)
+    # pop the fcmp instruction
+    cmp.set_op_type(tokens.pop(0))
+
+    # pop potential fast-math flags
+    while is_fast_math_flag(tokens[0]):
+        tokens.pop(0)
 
     # get the condition
-    icmp.set_condition(tokens.pop(0))
+    cmp.set_condition(tokens.pop(0))
 
     # pop the type
     _, tokens = get_type(tokens)
 
     # get the first value
     value1, tokens = get_value(tokens)
-    icmp.set_value1(value1)
+    cmp.set_value1(value1)
 
-    # get the second value
     value2, tokens = get_value(tokens)
-    icmp.set_value2(value2)
+    cmp.set_value2(value2)
 
-    return icmp
+    return cmp
 
 
-class Icmp(LlvmStatement):
+class Cmp(LlvmStatement):
     def __init__(self):
         super().__init__()
+        self.op_type = None
         self.condition = None
         self.value1 = None
         self.value2 = None
+
+    def set_op_type(self, op_type):
+        self.op_type = op_type
+
+    def get_op_type(self):
+        return self.op_type
 
     def set_condition(self, condition):
         self.condition = condition

@@ -38,8 +38,7 @@ from llvmAnalyser.memoryAccess.getelementptr import analyze_getelementptr
 
 from llvmAnalyser.conversion.conversion import analyze_conversion
 
-from llvmAnalyser.other.icmp import analyze_icmp
-from llvmAnalyser.other.fcmp import analyze_fcmp
+from llvmAnalyser.other.cmp import analyze_cmp
 from llvmAnalyser.other.phi import analyze_phi
 from llvmAnalyser.other.select import analyze_select
 from llvmAnalyser.other.freeze import analyze_freeze
@@ -272,6 +271,7 @@ class LLVMAnalyser:
             elif "cmpxchg" in tokens:
                 self.register_cmpxchg(tokens)
 
+            # register atomicrmx statement
             elif "atomicrmw" in tokens:
                 self.register_atomicrmw(tokens)
 
@@ -301,12 +301,8 @@ class LLVMAnalyser:
             #   'icmp', 'fcmp', 'phi', 'select', 'freeze', 'call', 'va_arg', 'landingpad', 'catchpad', 'cleanuppad'
 
             # register icmp statement
-            elif "icmp" in tokens:
-                self.register_icmp(tokens)
-
-            # register fcmp statement
-            elif "fcmp" in tokens:
-                self.register_fcmp(tokens)
+            elif len(tokens) > 2 and tokens[2] in ["icmp", "fcmp"]:
+                self.register_cmp(tokens)
 
             # register phi statement
             elif "phi" in tokens:
@@ -316,6 +312,7 @@ class LLVMAnalyser:
             elif "select" in tokens:
                 self.register_select(tokens)
 
+            # register freeze statement
             elif "freeze" in tokens:
                 self.register_freeze(tokens)
 
@@ -670,14 +667,8 @@ class LLVMAnalyser:
     # register_freeze()
     # register_call()
 
-    def register_icmp(self, tokens):
-        self.rhs = analyze_icmp(tokens)
-        self.register_statement("{} {} {}".format(self.rhs.get_value1(),
-                                                  self.rhs.get_condition(),
-                                                  self.rhs.get_value2()))
-
-    def register_fcmp(self, tokens):
-        self.rhs = analyze_fcmp(tokens)
+    def register_cmp(self, tokens):
+        self.rhs = analyze_cmp(tokens)
         self.register_statement("{} {} {}".format(self.rhs.get_value1(),
                                                   self.rhs.get_condition(),
                                                   self.rhs.get_value2()))
