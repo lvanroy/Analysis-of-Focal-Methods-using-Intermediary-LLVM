@@ -98,9 +98,9 @@ class TestTool(unittest.TestCase):
     #     self.assertEqual(focal_methods['@_ZN15ADDTEST_eq_Test8TestBodyEv'].pop(), '@_Z7add_intii')
     #     self.assertEqual(len(focal_methods['@_ZN15ADDTEST_eq_Test8TestBodyEv']), 0)
 
-    # def test_simple_class(self):
-    #     project_path = "exampleProjects/simple_class"
-    #     create_build_dir(project_path)
-    #     build_project(project_path)
-    #
-    #     analyze_function(project_path)
+    def test_simple_class(self):
+        project_path = "exampleProjects/simple_class"
+        create_build_dir(project_path)
+        build_project(project_path)
+
+        analyze_function(project_path)

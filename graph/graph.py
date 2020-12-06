@@ -17,6 +17,9 @@ class Graph:
         # this dict will be used to map block names to the corresponding start nodes
         self.block_map = dict()
 
+        # keep track of the assertion nodes, these will be used to start the focal method analysis from
+        self.assertions = list()
+
         self.func = re.compile(r'^.*(= )?call .*$')
 
     def register_start_of_block(self, block_name):
@@ -54,12 +57,17 @@ class Graph:
             if end_node not in self.needed_nodes:
                 self.needed_nodes.append(end_node)
             self.edges[key] = Edge(start_node, end_node, label)
+            start_node.add_out(end_node)
+            end_node.add_inc(start_node)
         return self.edges[key]
 
     def make_node_start_node(self, node_name):
         for node in self.nodes.values():
             if node.get_name() == node_name:
                 node.set_start()
+
+    def add_assertion(self, node):
+        self.assertions.append(node)
 
     # this function is used to check for assert helpers, which are functions that link test code to the specific assert
     # functions

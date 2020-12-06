@@ -67,6 +67,7 @@ class CallAnalyzer:
                 tokens.pop(0)
 
             # read register
+            end_of_arguments = tokens[0][-1] == ")"
             value, tokens = get_value(tokens)
             argument.set_register(value)
 

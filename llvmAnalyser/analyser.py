@@ -439,6 +439,7 @@ class LLVMAnalyser:
             self.top_graph_nodes[self.opened_function].set_test()
             self.graphs[self.opened_function].set_test_func()
             new_node.set_test()
+            self.graphs[self.opened_function].add_assertion(new_node)
         if self.test_identifier.identify_assertion_function(self.opened_function):
             self.top_graph_nodes[self.opened_function].set_assertion()
             new_node.set_assertion()

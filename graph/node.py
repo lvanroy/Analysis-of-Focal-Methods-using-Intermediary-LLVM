@@ -2,6 +2,8 @@ class Node:
     def __init__(self, node_id, node_name):
         self.node_id = node_id
         self.node_name = node_name
+        self.inc = list()
+        self.out = list()
         self.context = None
         self.arguments = list()
         self.final = False
@@ -55,3 +57,9 @@ class Node:
 
     def get_context(self):
         return self.context
+
+    def add_inc(self, node):
+        self.inc.append(node)
+
+    def add_out(self, node):
+        self.out.append(node)
