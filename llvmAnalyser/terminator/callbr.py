@@ -1,5 +1,5 @@
 from llvmAnalyser.llvmStatement import LlvmStatement
-from llvmAnalyser.llvmchecker import is_calling_convention, is_parameter_attribute, is_address_space, \
+from llvmAnalyser.llvmChecker import is_calling_convention, is_parameter_attribute, is_address_space, \
     is_function_attribute
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value

@@ -44,7 +44,7 @@ def analyze_conversion(tokens):
     statement.set_final_type(final_type)
 
     # pop potential remaining tokens
-    while "dereferenceable" in tokens[0]:
+    while tokens and "dereferenceable" in tokens[0]:
         tokens.pop(0)
 
     return statement

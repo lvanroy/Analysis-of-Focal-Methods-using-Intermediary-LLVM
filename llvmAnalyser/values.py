@@ -1,6 +1,6 @@
 import re
 from llvmAnalyser.types import get_type
-from llvmAnalyser.llvmchecker import is_fast_math_flag
+from llvmAnalyser.llvmChecker import is_fast_math_flag
 
 # this function accepts a chain of tokens and will return the defined value within it
 # the value needs to start on the first token
@@ -132,6 +132,10 @@ def get_value_from_getelementptr(value, tokens):
     if tokens[0] == "inbounds":
         value += " {}".format(tokens.pop(0))
 
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        tokens[0] = tokens[0][1:]
+
     # get the type
     type1, tokens = get_type(tokens)
     value += " {},".format(type1)
@@ -145,7 +149,7 @@ def get_value_from_getelementptr(value, tokens):
     value += " {},".format(const_val)
 
     # access potential further indices
-    while value[-1] == ",":
+    while value[-1] == "," and value[-2] != ")":
         if tokens[0] == "inrange":
             value += " {}".format(tokens.pop(0))
 

@@ -1,4 +1,4 @@
-from llvmAnalyser.llvmchecker import *
+from llvmAnalyser.llvmChecker import *
 # The ‘invoke’ instruction causes control to transfer to a specified function,
 # with the possibility of control flow transfer to either the ‘normal’ label or the ‘exception’ label.
 # If the callee function returns with the “ret” instruction, control flow will return to the “normal” label.

@@ -83,18 +83,16 @@ class Graph:
 
     # this function is used to check for variables under test
     def check_for_used_assertion(self, assert_helpers):
-        test_vars = list()
+        assertions = list()
         for node in self.nodes.values():
             if not self.func.match(node.get_name()):
                 continue
             function = node.get_name().split("call ")[1]
             if function in assert_helpers:
                 node.set_assertion()
-                arguments = node.get_arguments()
-                test_vars.append(arguments[-1])
-                test_vars.append(arguments[-2])
+                assertions.append(node)
 
-        return test_vars
+        return assertions
 
     def export_graph(self, filename):
         changes_occurred = True

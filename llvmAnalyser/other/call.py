@@ -1,9 +1,13 @@
-from llvmAnalyser.llvmchecker import *
+from llvmAnalyser.llvmChecker import *
 from llvmAnalyser.function import Parameter as Argument
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
+# The ‘call’ instruction represents a simple function call.
+
+# <result> = [tail | musttail | notail ] call [fast-math flags] [cconv] [ret attrs] [addrspace(<num>)]
+#            <ty>|<fnty> <fnptrval>(<function args>) [fn attrs] [ operand bundles ]
 
 class CallAnalyzer:
     def __init__(self):
@@ -47,7 +51,10 @@ class CallAnalyzer:
         tokens.pop(0)
 
         # read the argument list
-        while "(" in tokens[0] or ")" not in tokens[0]:
+        while tokens and \
+                not is_group_attribute(tokens[0]) and \
+                not is_function_attribute(tokens[0]) and \
+                ("(" in tokens[0] or ")" not in tokens[0]):
             argument = Argument()
 
             # read argument type
@@ -64,8 +71,6 @@ class CallAnalyzer:
             argument.set_register(value)
 
             call.add_argument(argument)
-
-        tokens.pop(0)
 
         if tokens and is_group_attribute(tokens[0]):
             call.set_group_function_attribute(tokens[0])

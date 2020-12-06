@@ -1,5 +1,5 @@
 from llvmAnalyser.llvmStatement import LlvmStatement
-from llvmAnalyser.llvmchecker import is_fast_math_flag
+from llvmAnalyser.llvmChecker import is_fast_math_flag
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 # The ‘select’ instruction is used to choose one value based on a condition, without IR-level branching.

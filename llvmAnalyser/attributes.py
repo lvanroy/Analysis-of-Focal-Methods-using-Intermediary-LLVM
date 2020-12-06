@@ -1,4 +1,4 @@
-from llvmAnalyser.llvmchecker import is_attribute
+from llvmAnalyser.llvmChecker import is_attribute
 
 
 class AttributeGroupHandler:

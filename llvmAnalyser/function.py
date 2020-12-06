@@ -1,4 +1,4 @@
-from llvmAnalyser.llvmchecker import *
+from llvmAnalyser.llvmChecker import *
 from llvmAnalyser.memory import Memory
 from llvmAnalyser.types import get_type
 

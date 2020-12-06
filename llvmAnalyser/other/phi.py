@@ -1,5 +1,5 @@
 from llvmAnalyser.types import get_type
-from llvmAnalyser.llvmchecker import is_fast_math_flag
+from llvmAnalyser.llvmChecker import is_fast_math_flag
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 '''

@@ -44,6 +44,8 @@ from llvmAnalyser.other.select import analyze_select
 from llvmAnalyser.other.freeze import analyze_freeze
 from llvmAnalyser.other.call import CallAnalyzer, Call
 
+from llvmAnalyser.analyzeTestMethod import get_focal_method
+
 block_start_format = re.compile(r'[0-9]*:')
 
 
@@ -391,23 +393,28 @@ class LLVMAnalyser:
                 function_memory = self.function_handler.get_function_memory(graph)
 
                 # get all variables compared in assertions
-                test_vars = self.graphs[graph].check_for_used_assertion(assert_helpers)
+                assertions = self.graphs[graph].check_for_used_assertion(assert_helpers)
+
+                # call the get_focal_method function for each parameter of the assertions
+                for assertion in assertions:
+                    for parameter in assertion.get_arguments():
+                        get_focal_method(assertion, parameter)
 
                 # trace where said variables are used, in case they can be traced back to a call
                 # return said register, if not, return None
                 # we want to track all initial calls, as these are considered to be functions under test
-                initial_vars = list()
-                for test_var in test_vars:
-                    initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
-                    if initial is not None:
-                        initial_vars.append(initial)
+                # initial_vars = list()
+                # for test_var in test_vars:
+                #     initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
+                #     if initial is not None:
+                #         initial_vars.append(initial)
 
                 # set all initial nodes as test variables in the graph
-                for initial_var in initial_vars:
-                    node = function_memory.get_node(initial_var)
-                    node.set_test_var()
-                    self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
-                    focal_methods[graph].add(node.get_context().get_function_name())
+                # for initial_var in initial_vars:
+                #     node = function_memory.get_node(initial_var)
+                #     node.set_test_var()
+                #     self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
+                #     focal_methods[graph].add(node.get_context().get_function_name())
 
                 # draw the relevant graphs if desired
                 if self.config["graph"]:
