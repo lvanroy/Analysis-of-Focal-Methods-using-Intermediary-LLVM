@@ -28,7 +28,7 @@ class TestLLVMValues(unittest.TestCase):
         self.assertEqual(get_value(["0x432ff973cafa323,", "i1", "true"])[0], "0x432ff973cafa323")
         self.assertEqual(get_value(["0x432ff973cafa323)"])[0], "0x432ff973cafa323")
 
-    def test_null_none_undef(self):
+    def test_null_none_undef_void(self):
         self.assertEqual(get_value(["null"])[0], "null")
         self.assertEqual(get_value(["none"])[0], "none")
         self.assertEqual(get_value(["undef"])[0], "undef")
@@ -77,12 +77,12 @@ class TestLLVMValues(unittest.TestCase):
         result = get_value(["trunc", "i32", "257", "to", "i8"])
         self.assertEqual(result[0], "trunc i32 257 to i8")
 
-        result = get_value(["zext", "<2", "x", "i16>", "<i16", "8,", "i16", "7>", "to", "<2", "x", "i32>"])
+        result = get_value(["zext", "(<2", "x", "i16>", "<i16", "8,", "i16", "7>", "to", "<2", "x", "i32>)"])
         self.assertEqual(result[0], "zext <2 x i16> <i16 8, i16 7> to <2 x i32>")
 
-        result = get_value(["sext", "i8", "-1", "to", "i16", "i32", "5"])
+        result = get_value(["sext", "(i8", "-1", "to", "i16),", "i32", "5)"])
         self.assertEqual(result[0], "sext i8 -1 to i16")
-        self.assertEqual(result[1], ["i32", "5"])
+        self.assertEqual(result[1], ["i32", "5)"])
 
         result = get_value(["fptrunc",  "double", "16777217.0", "to", "float"])
         self.assertEqual(result[0], "fptrunc double 16777217.0 to float")
@@ -108,7 +108,7 @@ class TestLLVMValues(unittest.TestCase):
         result = get_value(["inttoptr", "<4", "x", "i32>", "%G", "to", "<4", "x", "i8*>"])
         self.assertEqual(result[0], "inttoptr <4 x i32> %G to <4 x i8*>")
 
-        result = get_value(["bitcast", "<2", "x", "i32*>", "%V", "to", "<2", "x", "i64*>"])
+        result = get_value(["bitcast", "(<2", "x", "i32*>", "%V", "to", "<2", "x", "i64*>)"])
         self.assertEqual(result[0], "bitcast <2 x i32*> %V to <2 x i64*>")
 
         result = get_value(["addrspacecast", "<4 x i32*>", "%z", "to", "<4", "x", "float", "addrspace(3)*>"])
@@ -119,12 +119,17 @@ class TestLLVMValues(unittest.TestCase):
                             "i32", "0,", "i32", "2"])
         self.assertEqual(result[0], "getelementptr inbounds [5 x i8*], [5 x i8*]* @_ZTV9Rectangle, i32 0, i32 2")
 
+        result = get_value(["getelementptr", "inbounds", "([5", "x", "i8*],", "[5", "x", "i8*]*", "@_ZTV9Rectangle,",
+                            "i32", "0,", "i32", "2),", "i32", "5)"])
+        self.assertEqual(result[0], "getelementptr inbounds [5 x i8*], [5 x i8*]* @_ZTV9Rectangle, i32 0, i32 2")
+
     def test_const_other(self):
         result = get_value(["select", "i1", "true,", "i8", "17,", "i8", "42"])
         self.assertEqual(result[0], "select i1 true, i8 17, i8 42")
 
-        result = get_value(["icmp", "eq", "i32", "4,", "5"])
+        result = get_value(["icmp", "eq", "(i32", "4,", "5),", "i32", "8)"])
         self.assertEqual(result[0], "icmp eq i32 4, 5")
+        self.assertEqual(result[1], ["i32", "8)"])
 
         result = get_value(["fcmp", "oeq", "float", "4.0,", "5.0"])
         self.assertEqual(result[0], "fcmp oeq float 4.0, 5.0")
@@ -145,6 +150,14 @@ class TestLLVMValues(unittest.TestCase):
     def test_const_aggregate_op(self):
         result = get_value(["extractvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "0"])
         self.assertEqual(result[0], "extractvalue {i32, float} {i32 4, float 17.0}, 0")
+
+        result = get_value(["extractvalue", "({i32,", "float}", "{i32", "4,", "float", "17.0},", "0),", "i32", "8)"])
+        self.assertEqual(result[0], "extractvalue {i32, float} {i32 4, float 17.0}, 0")
+        self.assertEqual(result[1], ["i32", "8)"])
+
+        result = get_value(["extractvalue", "({i32,", "float}", "{i32", "4,", "float", "17.0},", "0)(@\"foo\")"])
+        self.assertEqual(result[0], "extractvalue {i32, float} {i32 4, float 17.0}, 0")
+        self.assertEqual(result[1], ["(@\"foo\")"])
 
         result = get_value(["insertvalue", "{i32,", "float}", "{i32", "4,", "float", "17.0},", "i32", "4,", "0"])
         self.assertEqual(result[0], "insertvalue {i32, float} {i32 4, float 17.0}, i32 4, 0")
