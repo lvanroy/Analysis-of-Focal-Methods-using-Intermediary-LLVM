@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 
@@ -17,15 +18,15 @@ def analyze_store(tokens):
         tokens.pop(0)
 
     # skip type
-    _, tokens = get_type(tokens)
-
-    store.set_value(Value(tokens[0].replace(",", "")))
-    tokens.pop(0)
-
+    temp, tokens = get_type(tokens)
+    store_value, tokens = get_value(tokens)
+    store.set_value(store_value)
     # skip type
     _, tokens = get_type(tokens)
 
-    store.set_register(tokens[0].replace(",", ""))
+    # get the register
+    register, tokens = get_value(tokens)
+    store.set_register(register)
 
     return store
 
@@ -50,23 +51,3 @@ class Store(LlvmStatement):
 
     def get_used_variables(self):
         return [self.value]
-
-
-class Value(LlvmStatement):
-    def __init__(self, value):
-        super().__init__()
-        self.value = value
-
-        if "%" in value:
-            self.used_vars = [value]
-        else:
-            self.used_vars = None
-
-    def get_value(self):
-        return self.value
-
-    def get_used_variables(self):
-        return self.used_vars
-
-    def __str__(self):
-        return self.value

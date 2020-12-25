@@ -1,5 +1,8 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.llvmStatement import LlvmStatement
+# The ‘switch’ instruction is used to transfer control flow to one of several different places.
+# It is a generalization of the ‘br’ instruction, allowing a branch to occur to one of many possible destinations.
+# switch <intty> <value>, label <defaultdest> [ <intty> <val>, label <dest> ... ]
 
 
 def analyze_switch(tokens):
@@ -56,10 +59,7 @@ class Switch(LlvmStatement):
         return self.branches
 
     def get_used_variables(self):
-        used_vars = list()
-        for branch in self.branches:
-            used_vars.append(branch.conditional_value)
-        return used_vars
+        return list()
 
     def __str__(self):
         output = "switch def: {}\n".format(self.default)

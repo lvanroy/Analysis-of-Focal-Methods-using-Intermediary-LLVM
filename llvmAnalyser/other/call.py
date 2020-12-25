@@ -3,6 +3,7 @@ from llvmAnalyser.function import Parameter as Argument
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
+from llvmAnalyser.conversion.conversion import analyze_conversion
 
 # The ‘call’ instruction represents a simple function call.
 
@@ -33,22 +34,30 @@ class CallAnalyzer:
 
         # check if there are parameter attributes
         while is_parameter_attribute(tokens[0]):
+            open_brackets = tokens[0].count("(") - tokens[0].count(")")
             tokens.pop(0)
+            while open_brackets != 0:
+                open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                tokens.pop(0)
 
         # skip the return type
         temp_type, tokens = get_type(tokens)
 
         # skip potential redundant tokens
-        while tokens[0].count("(") == 0:
+        while tokens[0].count("(") == 0 and "bitcast" not in tokens[0]:
             tokens.pop(0)
 
         # read the function name
-        temp = tokens[0].split("(", 1)
-        tokens[0] = temp[0]
-        tokens.insert(1, temp[1])
+        if "bitcast" in tokens[0]:
+            conversion = analyze_conversion(tokens)
+            call.set_function_name(conversion.get_value())
+            if tokens[0][0] == "(":
+                tokens[0] = tokens[0][1:]
+        else:
+            temp = tokens[0].split("(", 1)
+            tokens[0] = temp[1]
 
-        call.set_function_name(tokens[0])
-        tokens.pop(0)
+            call.set_function_name(temp[0])
 
         # read the argument list
         while tokens and \
@@ -63,11 +72,14 @@ class CallAnalyzer:
 
             # read potential parameter attributes
             while is_parameter_attribute(tokens[0]):
-                argument.add_parameter_attribute(tokens[0])
-                tokens.pop(0)
+                open_brackets = tokens[0].count("(") - tokens[0].count(")")
+                attribute = tokens.pop(0)
+                while open_brackets != 0 or attribute == "align":
+                    open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                    attribute += tokens.pop(0)
+                argument.add_parameter_attribute(attribute)
 
             # read register
-            end_of_arguments = tokens[0][-1] == ")"
             value, tokens = get_value(tokens)
             argument.set_register(value)
 
@@ -111,7 +123,10 @@ class Call(LlvmStatement):
         return self.arguments
 
     def get_used_variables(self):
-        return self.arguments
+        variable_values = list()
+        for argument in self.arguments:
+            variable_values.append(argument.get_register())
+        return variable_values
 
     def __str__(self):
         output = "call {}(".format(self.function_name)

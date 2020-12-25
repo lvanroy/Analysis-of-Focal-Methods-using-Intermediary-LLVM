@@ -1,8 +1,10 @@
 from llvmAnalyser.llvmStatement import LlvmStatement
 from llvmAnalyser.llvmChecker import is_calling_convention, is_parameter_attribute, is_address_space, \
-    is_function_attribute
+    is_function_attribute, is_group_attribute
+from llvmAnalyser.function import Parameter as Argument
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
+from llvmAnalyser.conversion.conversion import analyze_conversion
 
 
 # analyzer for the callbr command that will be of the form given below
@@ -27,7 +29,11 @@ def analyze_callbr(tokens: list):
 
     # pop the parameter attributes
     while is_parameter_attribute(tokens[0]):
+        open_brackets = tokens[0].count("(") - tokens[0].count(")")
         tokens.pop(0)
+        while open_brackets != 0:
+            open_brackets += tokens[0].count("(") - tokens[0].count(")")
+            tokens.pop(0)
 
     # pop the address space
     if is_address_space(tokens[0]):
@@ -37,27 +43,43 @@ def analyze_callbr(tokens: list):
     ret_type, tokens = get_type(tokens)
     br.set_return_type(ret_type)
 
-    while "(" not in tokens[0]:
+    # skip potential redundant tokens
+    while tokens[0].count("(") == 0 and "bitcast" not in tokens[0]:
         tokens.pop(0)
 
     # get the function name
-    br.set_function(tokens[0].split("(")[0])
-    tokens[0] = tokens[0].split("(")[1]
+    if "bitcast" in tokens[0]:
+        conversion = analyze_conversion(tokens)
+        br.set_function(conversion.get_value())
+    else:
+        temp = tokens[0].split("(", 1)
+        br.set_function(temp[0])
+        tokens[0] = temp[1]
 
-    while "(" in tokens[0] or ")" not in tokens[0]:
+    # read the argument list
+    while tokens and \
+            not is_group_attribute(tokens[0]) and \
+            not is_function_attribute(tokens[0]) and \
+            ("(" in tokens[0] or ")" not in tokens[0]):
         argument = Argument()
 
-        # get the arg type
-        arg_type, tokens = get_type(tokens)
-        argument.set_argument_type(arg_type)
+        # read argument type
+        parameter_type, tokens = get_type(tokens)
+        argument.set_parameter_type(parameter_type)
 
         # read potential parameter attributes
         while is_parameter_attribute(tokens[0]):
-            tokens.pop(0)
+            open_brackets = tokens[0].count("(") - tokens[0].count(")")
+            attribute = tokens.pop(0)
+            while open_brackets != 0 or attribute == "align":
+                open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                attribute += tokens.pop(0)
+            argument.add_parameter_attribute(attribute)
 
-        # read the parameter value
+        # read register
         value, tokens = get_value(tokens)
-        argument.set_argument_name(value)
+        argument.set_register(value)
+
         br.add_function_argument(argument)
 
     # pop potential function attributes
@@ -123,20 +145,8 @@ class CallBr(LlvmStatement):
     def get_indirect_label(self):
         return self.indirect_labels
 
-
-class Argument:
-    def __init__(self):
-        self.argument_type = None
-        self.argument_name = None
-
-    def set_argument_type(self, argument_type):
-        self.argument_type = argument_type
-
-    def get_argument_type(self):
-        return self.argument_type
-
-    def set_argument_name(self, argument_name):
-        self.argument_name = argument_name
-
-    def get_argument_name(self):
-        return self.argument_name
+    def get_used_variables(self):
+        variable_values = list()
+        for argument in self.function_arguments:
+            variable_values.append(argument.get_register())
+        return variable_values

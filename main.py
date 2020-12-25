@@ -66,7 +66,6 @@ print("[2/4]: building llvm - started")
 if not path.exists("build"):
     call(["mkdir", "build"], stdout=DEVNULL)
 
-
 print("-- cmake - started")
 c_compiler = "-DCMAKE_C_COMPILER={}".format(config["c"]["c_clang_path"])
 cxx_compiler = "-DCMAKE_CXX_COMPILER={}".format(config["c++"]["cxx_clang_path"])

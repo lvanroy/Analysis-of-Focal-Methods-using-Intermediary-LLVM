@@ -1,7 +1,22 @@
 from llvmAnalyser.llvmChecker import *
 from llvmAnalyser.memory import Memory
 from llvmAnalyser.types import get_type
+# LLVM function definitions consist of the “define” keyword, an optional linkage type,
+# an optional runtime preemption specifier, an optional visibility style, an optional DLL storage class,
+# an optional calling convention, an optional unnamed_addr attribute, a return type,
+# an optional parameter attribute for the return type, a function name,
+# a (possibly empty) argument list (each with optional parameter attributes), optional function attributes,
+# an optional address space, an optional section, an optional alignment,
+# an optional comdat, an optional garbage collector name, an optional prefix, an optional prologue,
+# an optional personality, an optional list of attached metadata, an opening curly brace, a list of basic blocks,
+# and a closing curly brace.
 
+# define [linkage] [PreemptionSpecifier] [visibility] [DLLStorageClass]
+#        [cconv] [ret attrs]
+#        <ResultType> @<FunctionName> ([argument list])
+#        [(unnamed_addr|local_unnamed_addr)] [AddrSpace] [fn Attrs]
+#        [section "name"] [comdat [($name)]] [align N] [gc] [prefix Constant]
+#        [prologue Constant] [personality Constant] (!name !N)* { ... }
 
 # this handler will create all needed function objects from tokens
 class FunctionHandler:
@@ -53,8 +68,12 @@ class FunctionHandler:
             tokens.pop(0)
 
         if is_parameter_attribute(tokens[0]):
-            func.set_return_parameter_attribute(tokens[0])
-            tokens.pop(0)
+            open_brackets = tokens[0].count("(") - tokens[0].count(")")
+            attribute = tokens.pop(0)
+            while open_brackets != 0:
+                open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                attribute += tokens.pop(0)
+            func.set_return_parameter_attribute(attribute)
 
         # set return type
         ret_type, tokens = get_type(tokens)
@@ -72,8 +91,15 @@ class FunctionHandler:
                 tokens.pop(0)
                 break
 
-            # read parameter type
             parameter = Parameter()
+
+            if "..." in tokens[0]:
+                parameter.set_register("...")
+                tokens.pop(0)
+                func.add_parameter(parameter)
+                break
+
+            # read parameter type
             parameter_type, tokens = get_type(tokens)
             parameter.set_parameter_type(parameter_type)
 
@@ -89,9 +115,13 @@ class FunctionHandler:
                 parameter.set_group_parameter_attribute(tokens[0])
                 tokens.pop(0)
             else:
-                while "," not in tokens[0] and "%" not in tokens[0] and (")" not in tokens[0] or "(" in tokens[0]):
-                    parameter.add_parameter_attribute(tokens[0])
-                    tokens.pop(0)
+                while is_parameter_attribute(tokens[0]):
+                    open_brackets = tokens[0].count("(") - tokens[0].count(")")
+                    attribute = tokens.pop(0)
+                    while open_brackets != 0 or attribute == "align":
+                        open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                        attribute += tokens.pop(0)
+                    parameter.add_parameter_attribute(attribute)
 
             # read parameter name
             if "%" in tokens[0]:
@@ -136,11 +166,16 @@ class FunctionHandler:
             tokens.pop(0)
 
         # check comdat info
-        if tokens[0] == "comdat":
-            if is_comdat(tokens[1]):
-                func.set_comdat(tokens[1])
-                tokens.pop(1)
-            tokens.pop(0)
+        if "comdat" in tokens[0]:
+            if "(" in tokens[0]:
+                open_brackets = tokens[0].count("(") - tokens[0].count(")")
+                value = tokens.pop(0).split("(", 1)[1]
+                while open_brackets != 0:
+                    value += tokens.pop(0)
+                    open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                func.set_comdat(value.rsplit(")", 1)[0])
+            else:
+                tokens.pop(0)
 
         # check alignment info
         if tokens[0] == "align":
@@ -196,8 +231,35 @@ class FunctionHandler:
     def get_function_memory(self, function_name):
         return self.functions[function_name].get_memory()
 
+    def get_function_arguments(self, function_name):
+        return self.functions[function_name].get_parameters()
+
     def is_startup_func(self, function_name):
         return self.functions[function_name].section == "\".text.startup\""
+
+    def is_mutator(self, function_name):
+        return self.functions[function_name].is_mutator()
+
+    def set_mutator(self, function_name):
+        self.functions[function_name].set_mutator()
+
+    def add_call(self, function_name, call):
+        self.functions[function_name].add_call(call)
+
+    def get_calls(self, function_name):
+        return self.functions[function_name].get_calls()
+
+    def add_callbr(self, function_name, callbr):
+        self.functions[function_name].add_callbr(callbr)
+
+    def get_callbrs(self, function_name):
+        return self.functions[function_name].get_callbrs()
+
+    def add_invoke(self, function_name, invoke):
+        self.functions[function_name].add_invoke(invoke)
+
+    def get_invokes(self, function_name):
+        return self.functions[function_name].get_invokes()
 
     def __str__(self):
         result = "The following {} functions were found within the llvm code:\n".format(len(self.functions))
@@ -231,6 +293,30 @@ class Function:
         self.prologue = None
         self.personality = None
         self.metadata = list()
+
+        self.calls = list()
+        self.callbrs = list()
+        self.invokes = list()
+
+        self.mutator = False
+
+    def add_call(self, call):
+        self.calls.append(call)
+
+    def get_calls(self):
+        return self.calls
+
+    def add_calbr(self, callbr):
+        self.callbrs.append(callbr)
+
+    def get_callbrs(self):
+        return self.callbrs
+
+    def add_invoke(self, invoke):
+        self.invokes.append(invoke)
+
+    def get_invokes(self):
+        return self.invokes
 
     def set_linkage_type(self, linkage_type):
         self.linkage_type = linkage_type
@@ -298,8 +384,17 @@ class Function:
     def get_number_of_parameters(self):
         return len(self.parameters)
 
+    def get_parameters(self):
+        return self.parameters
+
     def get_memory(self):
         return self.memory
+
+    def is_mutator(self):
+        return self.mutator
+
+    def set_mutator(self):
+        self.mutator = True
 
     def __str__(self):
         result = "function with name {} and return type {}\n".format(self.function_name, self.return_type)
@@ -362,6 +457,9 @@ class Parameter:
     def add_parameter_attribute(self, parameter_attribute):
         self.parameter_attributes.append(parameter_attribute)
 
+    def is_ret_var(self):
+        return "sret" in self.parameter_attributes
+
     def set_group_parameter_attribute(self, group):
         self.parameter_attributes = group
 
@@ -370,6 +468,9 @@ class Parameter:
 
     def get_register(self):
         return self.register
+
+    def get_parameter_type(self):
+        return self.parameter_type
 
     def __str__(self):
         result = self.parameter_type

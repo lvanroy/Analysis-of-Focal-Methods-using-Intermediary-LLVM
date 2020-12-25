@@ -1,6 +1,9 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 
 from llvmAnalyser.llvmStatement import LlvmStatement
+# The ‘extractvalue’ instruction extracts the value of a member field from an aggregate value.
+# <result> = extractvalue <aggregate type> <val>, <idx>{, <idx>}*
 
 
 def analyze_extractvalue(tokens):
@@ -17,11 +20,13 @@ def analyze_extractvalue(tokens):
     _, tokens = get_type(tokens)
 
     # get the value
-    extractvalue.set_value(tokens.pop(0).replace(",", ""))
+    value, tokens = get_type(tokens)
+    extractvalue.set_value(value)
 
     # get the indices
     while len(tokens) != 0:
-        extractvalue.add_index(tokens.pop(0).replace(",", ""))
+        index, tokens = get_value(tokens)
+        extractvalue.add_index(index)
 
     return extractvalue
 

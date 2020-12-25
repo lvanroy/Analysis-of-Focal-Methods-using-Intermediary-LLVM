@@ -1,5 +1,9 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
+
 from llvmAnalyser.llvmStatement import LlvmStatement
+# The ‘insertvalue’ instruction inserts a value into a member field in an aggregate value.
+# <result> = insertvalue <aggregate type> <val>, <ty> <elt>, <idx>{, <idx>}*    ; yields <aggregate type>
 
 
 def analyze_insertvalue(tokens):
@@ -23,12 +27,14 @@ def analyze_insertvalue(tokens):
     # get the type and value that is to be inserted
     insert_type, tokens = get_type(tokens)
     insertvalue_instruction.set_insert_type(insert_type)
-    insertvalue_instruction.set_insert_value(tokens[0].replace(",", ""))
+
+    value, tokens = get_value(tokens)
+    insertvalue_instruction.set_insert_value(value)
     tokens.pop(0)
 
     while len(tokens) != 0:
-        insertvalue_instruction.add_index(tokens[0].replace(",", ""))
-        tokens.pop(0)
+        index, tokens = get_value(tokens)
+        insertvalue_instruction.add_index(index)
 
     return insertvalue_instruction
 
@@ -74,5 +80,5 @@ class Insertvalue(LlvmStatement):
 
     def get_used_variables(self):
         if self.original == "undef":
-            return list()
-        return [self.original]
+            return [self.insert_value]
+        return [self.original, self.insert_value]

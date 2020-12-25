@@ -1,11 +1,12 @@
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
+from llvmAnalyser.llvmChecker import is_fast_math_flag
 
 
 class BinaryOpAnalyzer:
     def __init__(self):
-        self.operations = ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"]
+        self.operations = ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem", "fadd", "fsub", "fmul", "fdiv"]
         self.op_symbols = {
             "add": "+",
             "sub": "-",
@@ -13,7 +14,11 @@ class BinaryOpAnalyzer:
             "sdiv": "/",
             "srem": "%",
             "udiv": "/",
-            "urem": "%"
+            "urem": "%",
+            "fadd": "+",
+            "fsub": "-",
+            "fmul": "*",
+            "fdiv": "/"
         }
 
     def analyze_binary_op(self, tokens: list):
@@ -36,6 +41,10 @@ class BinaryOpAnalyzer:
 
         # pop potential exact token
         if tokens[0] == "exact":
+            tokens.pop(0)
+
+        # pop potential fastmath flags
+        while is_fast_math_flag(tokens[0]):
             tokens.pop(0)
 
         # get the type

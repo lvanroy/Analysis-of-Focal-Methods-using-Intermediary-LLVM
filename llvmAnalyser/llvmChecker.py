@@ -1,3 +1,6 @@
+import re
+
+
 # this class will be used to validate each token against the possible values a field can have
 def is_linkage_type(token):
     return token in {"private", "internal", "available externally", "linkonce", "weak",
@@ -39,9 +42,10 @@ def is_parameter_attribute(token):
     is_attr = token in {"zeroext", "signext", "inreg", "byval", "inalloca",
                         "sret", "noalias", "nocapture", "nofree", "nest",
                         "returned", "nonnull", "swiftself", "swifterror",
-                        "immarg", "noundef"}
-    is_attr = is_attr | ("byval" in token) | ("byref" in token) | ("dereferenceable_or_null" in token)
-    is_attr = is_attr | ("align" in token) | ("dereferenceable" in token) | ("preallocated" in token)
+                        "immarg", "noundef", "align"}
+    is_attr = is_attr or re.match(r'^byval(.*?)?', token) or re.match(r'^byref(.*?)?', token)
+    is_attr = is_attr or re.match(r'^preallocated(.*?)?', token) or re.match(r'^dereferenceable(.*?)?', token)
+    is_attr = is_attr or re.match(r'^align(.*?)?', token) or re.match(r'dereferenceable_or_null(.*?)?', token)
     return is_attr
 
 
@@ -82,3 +86,7 @@ def is_tail(token):
 def is_fast_math_flag(token):
     return token in {"nnan", "ninf", "nsz", "arcp", "contract",
                      "afn", "reassoc", "fast"}
+
+
+def is_tls(token):
+    return token in {"localdynamic", "initialexec", "localexec"}

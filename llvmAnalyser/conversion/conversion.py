@@ -31,21 +31,57 @@ def analyze_conversion(tokens):
     # pop the operation
     statement.set_operation(tokens.pop(0))
 
+    # check if the first token starts with an opening bracket
+    # this happens when this object is an argument in a different statement, in those cases, to prevent
+    # confusion with commas, certain sub statements can get enclosed within brackets
+    final_index = len(tokens)
+    if tokens[0][0] == "(":
+        tokens[0] = tokens[0][1:]
+
+        open_brackets = 1
+
+        # loop over the tokens until this first bracket is closed again, when this happens, return the index
+        for i in range(len(tokens)):
+            for j in range(len(tokens[i])):
+                char = tokens[i][j]
+                if char == "(":
+                    open_brackets += 1
+                elif char == ")":
+                    open_brackets -= 1
+                if open_brackets == 0:
+                    if tokens[i][j+1:] != "":
+                        tokens.insert(i+1, tokens[i][j+1:])
+                    tokens[i] = tokens[i][:j]
+                    final_index = i
+                    break
+            if final_index != len(tokens):
+                break
+
+    start_len = len(tokens)
+
     # get the original value
-    _, tokens = get_type(tokens)
+    temp, tokens = get_type(tokens)
     value, tokens = get_value(tokens)
     statement.set_value(value)
 
     # pop the to token
     tokens.pop(0)
 
+    final_index -= start_len - len(tokens)
+
     # get the final type
-    final_type, tokens = get_type(tokens)
+    final_type = ""
+    while final_index > 0 and "dereferenceable" not in tokens[0]:
+        final_type += tokens.pop(0)
+        final_index -= 1
+
     statement.set_final_type(final_type)
 
     # pop potential remaining tokens
-    while tokens and "dereferenceable" in tokens[0]:
+    while final_index > 0 and tokens and "dereferenceable" in tokens[0]:
         tokens.pop(0)
+        tokens.pop(0)
+        final_index -= 2
 
     return statement
 
