@@ -27,15 +27,21 @@ def analyze_call(tokens: list):
 
     # check if there is a cconv field
     if is_calling_convention(tokens[0]):
-        tokens.pop(0)
+        attr = tokens.pop(0)
+        if attr == "cc":
+            attr += " {}".format(tokens.pop(0))
+        call.set_calling_convention(attr)
+    else:
+        call.set_calling_convention("ccc")
 
     # check if there are parameter attributes
     while is_parameter_attribute(tokens[0]):
         open_brackets = tokens[0].count("(") - tokens[0].count(")")
-        tokens.pop(0)
+        attr = tokens.pop(0)
         while open_brackets != 0:
             open_brackets += tokens[0].count("(") - tokens[0].count(")")
-            tokens.pop(0)
+            attr += " {}".format(tokens.pop(0))
+        call.add_return_attr(attr)
 
     # skip the return type
     temp_type, tokens = get_type(tokens)
@@ -90,7 +96,7 @@ def analyze_call(tokens: list):
     if tokens and is_group_attribute(tokens[0]):
         call.set_group_function_attribute(tokens[0])
         tokens.pop(0)
-    elif tokens and is_function_attribute(tokens[0]):
+    while tokens and is_function_attribute(tokens[0]):
         if "allocsize" in tokens[0]:
             attribute = tokens.pop(0)
             open_brackets = attribute.count("(") - attribute.count(")")
@@ -98,7 +104,7 @@ def analyze_call(tokens: list):
                 open_brackets += tokens[0].count("(") - tokens[0].count(")")
                 attribute += " {}".format(tokens.pop(0))
             call.add_function_attribute(attribute)
-        while tokens and is_function_attribute(tokens[0]):
+        else:
             call.add_function_attribute(tokens.pop(0))
 
     # analyze operand bundle sets
@@ -144,6 +150,8 @@ def analyze_call(tokens: list):
 
         call.set_operand_bundle_set(operand_bundle_set)
 
+        tokens.pop(0)
+
     return call
 
 
@@ -172,6 +180,8 @@ class Call(LlvmStatement):
         self.function_attributes = list()
         self.operand_bundle_set = None
         self.memory = None
+        self.calling_convention = None
+        self.return_attrs = list()
 
     def set_function_name(self, function_name):
         self.function_name = function_name
@@ -205,6 +215,18 @@ class Call(LlvmStatement):
         for argument in self.arguments:
             variable_values.append(argument.get_register())
         return variable_values
+
+    def set_calling_convention(self, cconv):
+        self.calling_convention = cconv
+
+    def get_calling_convention(self):
+        return self.calling_convention
+
+    def add_return_attr(self, attr):
+        self.return_attrs.append(attr)
+
+    def get_return_attrs(self):
+        return self.return_attrs
 
     def __str__(self):
         output = "call {}(".format(self.function_name)

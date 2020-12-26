@@ -3,6 +3,7 @@ from test.llvm_types_test import *
 from test.llvm_values_test import *
 from test.llvm_decl_test import *
 from test.llvm_call_test import *
+from test.llvm_invoke_test import *
 from test.test import *
 
 if __name__ == '__main__':

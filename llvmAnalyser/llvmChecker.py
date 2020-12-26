@@ -51,7 +51,7 @@ def is_parameter_attribute(token):
 
 
 def is_function_attribute(token):
-    is_attr = token in {"alwaysinline", "builtin", "cold", "convergent", "inaccessiblememonly",
+    is_attr = token in {"alwaysinline", "builtin", "cold", "convergent", "hot", "inaccessiblememonly",
                         "inaccessiblemem_or_argmemonly", "inlinehint", "jumptable", "minsize",
                         "naked", "\"no-inline-line-tables\"", "no-jump-tables", "nobuiltin",
                         "noduplicate", "nofree", "noimplicitfloat", "noinline", "nomerge",
@@ -64,13 +64,13 @@ def is_function_attribute(token):
                         "sanitize_hwaddress", "sanitize_memtag", "speculative_load_hardening",
                         "speculatable", "ssp", "sspreq", "sspstrong", "strictfp", "\"denormal-fp-math\"",
                         "\"denormal-fp-math-f32\"", "\"thunk\"", "uwtable", "nocf_check", "shadowcallstack",
-                        "\"probe-stack\""}
+                        "\"probe-stack\"", "mustprogress"}
     is_attr = is_attr | ("alignstack" in token) | ("allocsize" in token)
     return is_attr
 
 
 def is_address_space(token):
-    return "#" in token
+    return "#" in token or re.match(r'^addrspace\(\d*?\)$', token)
 
 
 def is_comdat(token):
