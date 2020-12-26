@@ -54,12 +54,12 @@ class TestTool(unittest.TestCase):
         self.assertEqual(len(focal_methods["@_ZN20DictTest_add_el_Test8TestBodyEv"]), 1)
         self.assertTrue("@_ZN4Dict6add_elEii" in focal_methods["@_ZN20DictTest_add_el_Test8TestBodyEv"])
 
-    def test_stride(self):
-        llvm_path = "exampleProjects/stride/llvm/linked.ll"
-
-        focal_methods = get_focal_methods(llvm_path, 15)
-
-        for test_function in focal_methods.keys():
-            print(test_function)
-            for focal_method in focal_methods[test_function]:
-                print("\t{}".format(focal_method))
+    # def test_stride(self):
+    #     llvm_path = "exampleProjects/stride/llvm/linked.ll"
+    #
+    #     focal_methods = get_focal_methods(llvm_path, 15)
+    #
+    #     for test_function in focal_methods.keys():
+    #         print(test_function)
+    #         for focal_method in focal_methods[test_function]:
+    #             print("\t{}".format(focal_method))

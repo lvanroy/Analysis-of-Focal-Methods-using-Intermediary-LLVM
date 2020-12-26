@@ -1,5 +1,5 @@
 import unittest
-from llvmAnalyser.function import FunctionHandler, Function
+from llvmAnalyser.function import FunctionHandler
 # LLVM function definitions consist of the “define” keyword, an optional linkage type,
 # an optional runtime preemption specifier, an optional visibility style, an optional DLL storage class,
 # an optional calling convention, an optional unnamed_addr attribute, a return type,

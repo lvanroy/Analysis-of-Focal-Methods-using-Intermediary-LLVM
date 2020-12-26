@@ -6,12 +6,12 @@ from llvmAnalyser.llvmChecker import is_fast_math_flag, is_parameter_attribute
 # the value needs to start on the first token
 # the return will be a tuple containing the value that was found, as well as the remaining tokens
 
-boolean = re.compile(r'^((false)|(true))(,|\))?$')
-fp = re.compile(r'^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?(,|\))?$')
-fp_hex = re.compile(r'^0x[0-9a-fA-F]+(,|\))?$')
-null_none_undef = re.compile(r'^((null)|(none)|(undef))(,|\))?$')
-zeroinitializer = re.compile(r'^zeroinitializer(,|\))?$')
-global_var = re.compile(r'^@([_\.][0-9a-zA-Z]+)+(,|\))?$')
+boolean = re.compile(r'^((false)|(true))(,|\)|\),)?$')
+fp = re.compile(r'^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?(,|\)|\),)?$')
+fp_hex = re.compile(r'^0x[0-9a-fA-F]+(,|\)|\),)?$')
+null_none_undef = re.compile(r'^((null)|(none)|(undef))(,|\)|\),)?$')
+zeroinitializer = re.compile(r'^zeroinitializer(,|\)|\),)?$')
+global_var = re.compile(r'^@([_\.][0-9a-zA-Z]+)+(,|\)|\),)?$')
 
 
 def remove_trailing_char(value):

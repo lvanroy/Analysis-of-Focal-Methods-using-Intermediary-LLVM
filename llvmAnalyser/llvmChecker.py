@@ -46,6 +46,7 @@ def is_parameter_attribute(token):
     is_attr = is_attr or re.match(r'^byval(.*?)?', token) or re.match(r'^byref(.*?)?', token)
     is_attr = is_attr or re.match(r'^preallocated(.*?)?', token) or re.match(r'^dereferenceable(.*?)?', token)
     is_attr = is_attr or re.match(r'^align(.*?)?', token) or re.match(r'dereferenceable_or_null(.*?)?', token)
+    is_attr = is_attr or re.match(r'^sret(.*)?', token)
     return is_attr
 
 

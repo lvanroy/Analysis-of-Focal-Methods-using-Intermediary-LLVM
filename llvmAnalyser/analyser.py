@@ -45,7 +45,7 @@ from llvmAnalyser.other.cmp import analyze_cmp
 from llvmAnalyser.other.phi import analyze_phi
 from llvmAnalyser.other.select import analyze_select
 from llvmAnalyser.other.freeze import analyze_freeze
-from llvmAnalyser.other.call import CallAnalyzer, Call
+from llvmAnalyser.other.call import analyze_call, Call
 
 block_start_format = re.compile(r'[0-9]*:')
 
@@ -72,8 +72,6 @@ class LLVMAnalyser:
         self.attribute_group_handler = AttributeGroupHandler()
 
         self.binary_op_analyzer = BinaryOpAnalyzer()
-
-        self.call_analyzer = CallAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -1103,7 +1101,7 @@ class LLVMAnalyser:
         self.register_statement(node_name)
 
     def analyze_call(self, tokens):
-        self.rhs = self.call_analyzer.analyze_call(tokens)
+        self.rhs = analyze_call(tokens)
         function_name = self.rhs.function_name
         function_call = "call {}".format(function_name)
 
