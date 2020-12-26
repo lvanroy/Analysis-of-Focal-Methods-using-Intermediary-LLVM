@@ -8,3 +8,4 @@ temp
 __pycache__
 exampleProjects/**/llvm/*
 !exampleProjects/**/llvm/linked.ll
+exampleProjects/stride

@@ -1,6 +1,7 @@
 from llvmAnalyser.llvmChecker import *
 from llvmAnalyser.memory import Memory
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 # LLVM function definitions consist of the “define” keyword, an optional linkage type,
 # an optional runtime preemption specifier, an optional visibility style, an optional DLL storage class,
 # an optional calling convention, an optional unnamed_addr attribute, a return type,
@@ -17,6 +18,7 @@ from llvmAnalyser.types import get_type
 #        [(unnamed_addr|local_unnamed_addr)] [AddrSpace] [fn Attrs]
 #        [section "name"] [comdat [($name)]] [align N] [gc] [prefix Constant]
 #        [prologue Constant] [personality Constant] (!name !N)* { ... }
+
 
 # this handler will create all needed function objects from tokens
 class FunctionHandler:
@@ -58,21 +60,20 @@ class FunctionHandler:
         if is_calling_convention(tokens[0]):
             func.set_calling_convention(tokens[0])
             tokens.pop(0)
+            if func.get_calling_convention() == "cc":
+                func.set_calling_convention("cc {}".format(tokens.pop(0)))
         else:
             func.set_calling_convention("ccc")
 
         # check return parameter attributes
-        if tokens[0] == "align":
-            tokens[0] = "{} {}".format(tokens[0], tokens[1])
-            tokens.pop(1)
-            tokens.pop(0)
-
         if is_parameter_attribute(tokens[0]):
             open_brackets = tokens[0].count("(") - tokens[0].count(")")
             attribute = tokens.pop(0)
             while open_brackets != 0:
                 open_brackets += tokens[0].count("(") - tokens[0].count(")")
                 attribute += tokens.pop(0)
+            if attribute == "align":
+                attribute += " {}".format(tokens.pop(0))
             func.set_return_parameter_attribute(attribute)
 
         # set return type
@@ -120,7 +121,7 @@ class FunctionHandler:
                     attribute = tokens.pop(0)
                     while open_brackets != 0 or attribute == "align":
                         open_brackets += tokens[0].count("(") - tokens[0].count(")")
-                        attribute += tokens.pop(0)
+                        attribute += " {}".format(tokens.pop(0))
                     parameter.add_parameter_attribute(attribute)
 
             # read parameter name
@@ -154,7 +155,14 @@ class FunctionHandler:
         if is_group_attribute(tokens[0]):
             func.set_group_function_attribute(tokens[0])
             tokens.pop(0)
-        else:
+        elif is_function_attribute(tokens[0]):
+            if "allocsize" in tokens[0]:
+                attribute = tokens.pop(0)
+                open_brackets = attribute.count("(") - attribute.count(")")
+                while open_brackets != 0:
+                    open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                    attribute += " {}".format(tokens.pop(0))
+                func.add_function_attribute(attribute)
             while is_function_attribute(tokens[0]):
                 func.add_function_attribute(tokens[0])
                 tokens.pop(0)
@@ -191,31 +199,28 @@ class FunctionHandler:
 
         # check prefix info
         if tokens[0] == "prefix":
-            func.set_prefix(tokens[1])
-            tokens.pop(1)
             tokens.pop(0)
+            prefix_type, tokens = get_type(tokens)
+            prefix_value, tokens = get_value(tokens)
+            func.set_prefix("{} {}".format(prefix_type, prefix_value))
 
         # check prologue info
         if tokens[0] == "prologue":
-            func.set_prologue(tokens[1])
-            tokens.pop(1)
             tokens.pop(0)
+            prologue_type, tokens = get_type(tokens)
+            prologue_value, tokens = get_value(tokens)
+            func.set_prologue("{} {}".format(prologue_type, prologue_value))
 
         # check personality info
         if tokens[0] == "personality":
-            personality = ""
             tokens.pop(0)
-            while tokens[0] != "{" and not is_metadata(tokens[0]):
-                personality = "{} {}".format(personality, tokens[0])
-                tokens.pop(0)
-            func.set_personality(personality)
+            personality_type, tokens = get_type(tokens)
+            personality_value, tokens = get_value(tokens)
+            func.set_personality("{} {}".format(personality_type, personality_value))
 
         # check metadata info
-        while is_metadata(tokens[0]):
-            metadata = Metadata(tokens[0].replace("!", ""), tokens[1].replace("!", ""))
-            func.add_metadata(metadata)
-            tokens.pop(1)
-            tokens.pop(0)
+        while tokens and is_metadata(tokens[0]):
+            func.add_metadata(tokens.pop(0))
 
         finished = len(tokens) == 1
         if not finished:
@@ -233,6 +238,9 @@ class FunctionHandler:
 
     def get_function_arguments(self, function_name):
         return self.functions[function_name].get_parameters()
+
+    def get_function(self, function_name):
+        return self.functions[function_name]
 
     def is_startup_func(self, function_name):
         return self.functions[function_name].section == "\".text.startup\""
@@ -321,29 +329,56 @@ class Function:
     def set_linkage_type(self, linkage_type):
         self.linkage_type = linkage_type
 
+    def get_linkage_type(self):
+        return self.linkage_type
+
     def set_runtime_preemption(self, runtime_preemption):
         self.runtime_preemption = runtime_preemption
+
+    def get_runtime_preemption(self):
+        return self.runtime_preemption
 
     def set_visibility_style(self, visibility_style):
         self.visibility_style = visibility_style
 
+    def get_visibility_style(self):
+        return self.visibility_style
+
     def set_dll_storage_class(self, dll_storage_class):
         self.dll_storage_class = dll_storage_class
+
+    def get_dll_storage_class(self):
+        return self.dll_storage_class
 
     def set_calling_convention(self, calling_convention):
         self.calling_convention = calling_convention
 
+    def get_calling_convention(self):
+        return self.calling_convention
+
     def set_unnamed_address(self, unnamed_address):
         self.unnamed_address = unnamed_address
+
+    def get_unnamed_address(self):
+        return self.unnamed_address
 
     def set_return_type(self, return_type):
         self.return_type = return_type
 
+    def get_return_type(self):
+        return self.return_type
+
     def set_return_parameter_attribute(self, return_parameter_attribute):
         self.return_parameter_attribute = return_parameter_attribute
 
+    def get_return_parameter_attribute(self):
+        return self.return_parameter_attribute
+
     def set_function_name(self, function_name):
         self.function_name = function_name
+
+    def get_function_name(self):
+        return self.function_name
 
     def add_parameter(self, parameter):
         self.parameters.append(parameter)
@@ -351,35 +386,65 @@ class Function:
     def set_group_function_attribute(self, group):
         self.function_attributes = group
 
+    def get_function_attribute(self):
+        return self.function_attributes
+
     def add_function_attribute(self, attribute):
         self.function_attributes.append(attribute)
 
     def set_address_space(self, address_space):
         self.address_space = address_space
 
+    def get_address_space(self):
+        return self.address_space
+
     def set_section(self, section):
         self.section = section
+
+    def get_section(self):
+        return self.section
 
     def set_alignment(self, alignment):
         self.alignment = alignment
 
+    def get_alignment(self):
+        return self.alignment
+
     def set_comdat(self, comdat):
         self.comdat = comdat
+
+    def get_comdat(self):
+        return self.comdat
 
     def set_garbage_collector_name(self, gc_name):
         self.garbage_collector_name = gc_name
 
+    def get_garbage_collector_name(self):
+        return self.garbage_collector_name
+
     def set_prefix(self, prefix):
         self.prefix = prefix
+
+    def get_prefix(self):
+        return self.prefix
 
     def set_prologue(self, prologue):
         self.prologue = prologue
 
+    def get_prologue(self):
+        return self.prologue
+
     def set_personality(self, personality):
         self.personality = personality
 
+    def get_personality(self):
+        return self.personality
+
     def add_metadata(self, metadata):
         self.metadata.append(metadata)
+
+    def get_metadata(self):
+        return self.metadata
 
     def get_number_of_parameters(self):
         return len(self.parameters)
@@ -408,26 +473,30 @@ class Function:
             result += "\tdll storage class = {}\n".format(self.dll_storage_class)
         if self.calling_convention is not None:
             result += "\tcalling convention = {}\n".format(self.calling_convention)
-        if self.unnamed_address is not None:
-            result += "\tunnamed address = {}\n".format(self.unnamed_address)
         if self.return_parameter_attribute is not None:
             result += "\treturn parameter attribute = {}\n".format(self.return_parameter_attribute)
+        if self.return_type is not None:
+            result += "\treturn type = {}\n".format(self.return_type)
+        if self.function_name is not None:
+            result += "\tfunction name = {}\n".format(self.function_name)
         if len(self.parameters) != 0:
             result += "\t{} parameter(s):\n".format(len(self.parameters))
             for parameter in self.parameters:
                 result += "\t\t{}\n".format(str(parameter))
         else:
             result += "\t0 parameters\n"
-        if len(self.function_attributes) != 0:
-            result += "\tfunction attributes = {}\n".format(self.function_attributes)
+        if self.unnamed_address is not None:
+            result += "\tunnamed address = {}\n".format(self.unnamed_address)
         if self.address_space is not None:
             result += "\taddress space = {}\n".format(self.address_space)
+        if len(self.function_attributes) != 0:
+            result += "\tfunction attributes = {}\n".format(self.function_attributes)
         if self.section is not None:
             result += "\tsection = {}\n".format(self.section)
-        if self.alignment is not None:
-            result += "\talignment = {}\n".format(self.alignment)
         if self.comdat is not None:
             result += "\tcomdat = {}\n".format(self.comdat)
+        if self.alignment is not None:
+            result += "\talignment = {}\n".format(self.alignment)
         if self.garbage_collector_name is not None:
             result += "\tgarbage collector name = {}\n".format(self.garbage_collector_name)
         if self.prefix is not None:
@@ -472,6 +541,9 @@ class Parameter:
     def get_parameter_type(self):
         return self.parameter_type
 
+    def get_parameter_attributes(self):
+        return self.parameter_attributes
+
     def __str__(self):
         result = self.parameter_type
         if type(self.parameter_attributes) == list:
@@ -481,12 +553,3 @@ class Parameter:
             result += self.parameter_attributes
         result += " {}".format(self.register)
         return result
-
-
-class Metadata:
-    def __init__(self, identifier, value):
-        self.identifier = identifier
-        self.value = value
-
-    def __str__(self):
-        return "!{} !{}".format(self.identifier, self.value)

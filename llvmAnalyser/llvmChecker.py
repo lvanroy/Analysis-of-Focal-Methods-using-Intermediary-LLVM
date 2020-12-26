@@ -21,7 +21,7 @@ def is_dll_storage_class(token):
 
 
 def is_calling_convention(token):
-    return token in {"ccc", "fastcc", "coldcc", "cc 10", "cc 11", "webkit_jscc",
+    return token in {"ccc", "fastcc", "coldcc", "cc", "cc", "webkit_jscc",
                      "anyregcc", "preserve_mostcc", "preserve_allcc", "cxx_fast_tlscc",
                      "swiftcc", "tailcc", "cfguard_checkcc"}
 
@@ -62,7 +62,8 @@ def is_function_attribute(token):
                         "safestack", "sanitize_address", "sanitize_memory", "sanitize_thread",
                         "sanitize_hwaddress", "sanitize_memtag", "speculative_load_hardening",
                         "speculatable", "ssp", "sspreq", "sspstrong", "strictfp", "\"denormal-fp-math\"",
-                        "\"denormal-fp-math-f32\"", "\"thunk\"", "uwtable", "nocf_check", "shadowcallstack"}
+                        "\"denormal-fp-math-f32\"", "\"thunk\"", "uwtable", "nocf_check", "shadowcallstack",
+                        "\"probe-stack\""}
     is_attr = is_attr | ("alignstack" in token) | ("allocsize" in token)
     return is_attr
 
@@ -76,7 +77,7 @@ def is_comdat(token):
 
 
 def is_metadata(token):
-    return "!" in token
+    return token[0] == "!"
 
 
 def is_tail(token):
