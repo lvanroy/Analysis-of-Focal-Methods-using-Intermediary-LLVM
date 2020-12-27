@@ -1,5 +1,4 @@
 from llvmAnalyser.llvmChecker import *
-from llvmAnalyser.memory import Memory
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
 from copy import copy
@@ -258,9 +257,6 @@ class FunctionHandler:
 
         return func.function_name
 
-    def get_function_memory(self, function_name):
-        return self.functions[function_name].get_memory()
-
     def get_function_arguments(self, function_name):
         return self.functions[function_name].get_parameters()
 
@@ -294,6 +290,13 @@ class FunctionHandler:
     def get_invokes(self, function_name):
         return self.functions[function_name].get_invokes()
 
+    def get_used_functions(self, function_name):
+        calls = self.get_calls(function_name)
+        callbrs = self.get_callbrs(function_name)
+        invokes = self.get_invokes(function_name)
+        return calls + callbrs + invokes
+
+
     def __str__(self):
         result = "The following {} functions were found within the llvm code:\n".format(len(self.functions))
         for key in self.functions:
@@ -319,8 +322,6 @@ def get_nr_of_tokens_past_last_bracket(tokens):
 # this class will define a function specified within llvm
 class Function:
     def __init__(self):
-        self.memory = Memory()
-
         self.linkage_type = None
         self.runtime_preemption = None
         self.visibility_style = None
@@ -492,8 +493,11 @@ class Function:
     def get_parameters(self):
         return self.parameters
 
-    def get_memory(self):
-        return self.memory
+    def get_argument_registers(self):
+        registers = list()
+        for argument in self.parameters:
+            registers.append(argument.get_register())
+        return registers
 
     def is_mutator(self):
         return self.mutator

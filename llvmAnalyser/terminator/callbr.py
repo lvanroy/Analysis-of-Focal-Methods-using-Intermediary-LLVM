@@ -133,6 +133,12 @@ class CallBr(LlvmStatement):
     def get_function_arguments(self):
         return self.function_arguments
 
+    def get_argument_registers(self):
+        registers = list()
+        for argument in self.function_arguments:
+            registers.append(argument.get_register())
+        return registers
+
     def set_fallthrough_label(self, fallthrough_label):
         self.fallthrough_label = fallthrough_label
 

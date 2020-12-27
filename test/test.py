@@ -27,8 +27,6 @@ class TestTool(unittest.TestCase):
 
         focal_methods = get_focal_methods(llvm_path, 1)
 
-        print(focal_methods)
-
         self.assertEqual(len(focal_methods), 1)
         self.assertEqual(len(focal_methods["@_ZN19StackTest_push_Test8TestBodyEv"]), 1)
         self.assertEqual(focal_methods["@_ZN19StackTest_push_Test8TestBodyEv"].pop(), "@_ZN5Stack4pushEi")
@@ -37,8 +35,6 @@ class TestTool(unittest.TestCase):
         llvm_path = "exampleProjects/profile/llvm/linked.ll"
 
         focal_methods = get_focal_methods(llvm_path, 5)
-
-        print(focal_methods)
 
         self.assertEqual(len(focal_methods), 1)
         self.assertEqual(len(focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"]), 1)

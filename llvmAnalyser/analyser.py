@@ -12,7 +12,7 @@ from llvmAnalyser.function import FunctionHandler
 from llvmAnalyser.attributes import AttributeGroupHandler
 from llvmAnalyser.alias import analyze_alias
 
-from llvmAnalyser.terminator.ret import analyze_ret, Ret
+from llvmAnalyser.terminator.ret import analyze_ret
 from llvmAnalyser.terminator.br import analyze_br
 from llvmAnalyser.terminator.switch import analyze_switch
 from llvmAnalyser.terminator.indirectbr import analyze_inidrectbr
@@ -33,13 +33,13 @@ from llvmAnalyser.vector.shufflevector import analyze_shufflevector
 from llvmAnalyser.aggregate.insertvalue import analyze_insertvalue
 from llvmAnalyser.aggregate.extractvalue import analyze_extractvalue
 
-from llvmAnalyser.memoryAccess.store import analyze_store, Store
-from llvmAnalyser.memoryAccess.load import analyze_load
+from llvmAnalyser.memoryAccess.store import analyze_store
+from llvmAnalyser.memoryAccess.load import analyze_load, Load
 from llvmAnalyser.memoryAccess.cmpxchg import analyze_cmpxchg
 from llvmAnalyser.memoryAccess.atomicrmw import analyze_atomicrmw
 from llvmAnalyser.memoryAccess.getelementptr import analyze_getelementptr, Getelementptr
 
-from llvmAnalyser.conversion.conversion import analyze_conversion
+from llvmAnalyser.conversion.conversion import analyze_conversion, Conversion
 
 from llvmAnalyser.other.cmp import analyze_cmp
 from llvmAnalyser.other.phi import analyze_phi
@@ -85,7 +85,11 @@ class LLVMAnalyser:
 
         # keep track of which function is opened, to further complete the graph related to this function
         self.opened_function = None
-        self.opened_function_memory = None
+
+        self.stores = dict()
+        self.loads = dict()
+        self.references = dict()
+        self.conversions = dict()
 
         # keep track of what register we are assigning to (if any),
         # this is an object of type llvmAnalyser.memory.Register
@@ -98,6 +102,10 @@ class LLVMAnalyser:
         # track the evaluated functions, as well as the functions in queue to evaluate
         self.evaluated_functions = list()
         self.functions_to_evaluate = list()
+
+        self.indent = 0
+
+        self.references = dict()
 
     def get_relevant_functions(self, file):
         f = open(file, "r")
@@ -339,11 +347,19 @@ class LLVMAnalyser:
 
         if function_name in self.node_stack:
             for i in range(len(arguments)):
-                arg_val = self.function_handler.get_function_arguments(function_name)[i].get_register()
-                root = self.node_stack[function_name][0]
-                mutator, _ = self.is_arg_mutated(root, Value(arg_val))
+                root_arg = self.function_handler.get_function_arguments(function_name)[i]
+                # noalias implies that the value it directs to can not be considered
+                # if this is the case, it means that this is just instantiated for the function
+                # and it can therefore not be mutated
+                if "noalias" in root_arg.get_parameter_attributes():
+                    continue
+                arg_val = root_arg.get_register()
+                self.indent = 0
+                self.opened_function = function_name
+                # print("entering function: {} using: {}".format(self.opened_function, arg_val))
+                mutator = self.is_arg_mutated(arg_val)
+                # print("function {}\nwas found to be {} for arg {}".format(function_name, mutator, arg_val))
                 if mutator == "mutator":
-                    # print("MUTATOR: {}".format(function_name)
                     focal_methods.add(function_name)
                     return focal_methods, "mutator"
                 elif mutator == "uncertain":
@@ -359,164 +375,89 @@ class LLVMAnalyser:
         return focal_methods, mutator
 
     # see if an argument of a function is mutated within that function scope
-    # tracked_variable:
-    #   the tracked variable must be of type variable, which is a necessity to allow verification of whether or not
-    #   the variable under track is a reference or an actual value
-    # checked_states:
-    #   the checked states variable is needed to detect loops,
-    #   for each node it will track all tracked variables that have been checked starting from each node
-    # references:
-    #   the references variable is used to track which register points to which other register
-    #   this is needed as we would otherwise need to support backtracking, which is hugely inefficient
-    def is_arg_mutated(self, current_node, tracked_variable, checked_states=None, references=None):
-        # print("{} - {}: {}".format(tracked_variable.value, tracked_variable.is_reference(), current_node.get_name()))
-        # check if the checked states dictionary exists
-        if checked_states is None:
-            checked_states = dict()
+    def is_arg_mutated(self, tracked_variable, is_ref=False):
+        # print("{}:{}".format(tracked_variable, is_ref))
+        mutation_type = "inspector"
 
-        # check if the current state is registered within the checked states dictionary
-        if current_node not in checked_states:
-            checked_states[current_node] = set()
+        # this means the function was never analysed, and was therefore not defined our below our max depth
+        if self.opened_function not in self.node_stack:
+            return "uncertain"
 
-        # detect a loop, if no loop, register that we are currently investigating the tracked variable
-        if tracked_variable.value in checked_states[current_node]:
-            return "inspector", False
+        used_functions = self.function_handler.get_used_functions(self.opened_function)
+
+        for used_function in used_functions:
+            context = used_function.get_context()
+            if tracked_variable in context.get_argument_registers() and context.get_function_name() in self.node_stack:
+                temp = self.opened_function
+                self.opened_function = context.get_function_name()
+                index = context.get_argument_registers().index(tracked_variable)
+                new_function_args = self.function_handler.get_function(self.opened_function).get_argument_registers()
+                new_var = new_function_args[index]
+                # print("entering function: {} using: {} ({})".format(self.opened_function, new_var, is_ref))
+                mut = self.is_arg_mutated(new_var, is_ref)
+                # print("exited function: {}".format(self.opened_function))
+                self.opened_function = temp
+
+                if mut == "mutator":
+                    return "mutator"
+                elif mut == "uncertain":
+                    mutation_type = "uncertain"
+
+        # this means we assigned to a reference to the tracked variable
+        # the assigned value must also not be a reference, because otherwise we are considering a loop
+        # considering the case below, %3 will be marked as if containing a reference, but then we assigned to a
+        # reference, and so it might be considered a mutation, which is incorrect
+        #   %1 = getelementptr %2
+        #   store %1, %3
+        stores = self.stores[self.opened_function]
+        is_loaded = tracked_variable in self.loads[self.opened_function]
+        is_stored = tracked_variable in stores
+        is_referenced = tracked_variable in self.references[self.opened_function]
+        if is_ref and ((is_stored and is_loaded) or (is_stored and is_referenced)):
+            return "mutator"
+
         else:
-            checked_states[current_node].add(tracked_variable.value)
+            for lhs, rhs in self.stores[self.opened_function].items():
+                # this means that we assigned our tracked variable to a dif variable
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, is_ref)
 
-        # check if the references dictionary exists
-        if references is None:
-            references = dict()
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
 
-        # if it does not satisfy the regex, it means it is a constant
-        if not re.match(r'^%\d*?$', tracked_variable.value):
-            return "inspector", False
+            for lhs, rhs in self.loads[self.opened_function].items():
+                # this means that we loaded our tracked variable into a dif variable
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, False)
 
-        inspector = "inspector"
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
 
-        node_name = current_node.get_name()
-        context = current_node.get_context()
+            for lhs, rhs in self.conversions[self.opened_function].items():
+                # this means that we converted our tracked variable to a dif type
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, False)
 
-        # rhs_is_ref is used to track whether or not a potential call that is the left hand sight of an assignment
-        # returned a reference to an object, if so, the left hand side value needs to be considered a reference, and not
-        # a value
-        rhs_is_ref = False
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
 
-        # track if a reference was returned
-        # if a branch returns a reference, we assume that all branches do
-        returns_ref = False
+            for var, ref in self.references[self.opened_function].items():
+                # this means that we assigned a reference of our tracked variable to a dif variable
+                if ref == tracked_variable:
+                    mut = self.is_arg_mutated(var, True)
 
-        # check if a return occurred
-        if isinstance(context, Ret):
-            if context.get_value() is not None and context.get_value() == tracked_variable.value:
-                returns_ref = True
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
 
-        # check if there is a function call
-        if isinstance(context, (Call, CallBr, Invoke)):
-            success = False
-            i = None
-            for i in range(len(context.get_arguments())):
-                if context.get_arguments()[i].get_register() == tracked_variable.value:
-                    success = True
-
-            # if success, it means that the tracked variable did get passed to the function
-            # in the case it might get mutated within the function body, and we therefore inspect said function
-            if success:
-                function_name = context.get_function_name()
-                if function_name in self.node_stack:
-                    # print("ENTERING FUNCTION: {}".format(function_name))
-                    root = self.node_stack[function_name][0]
-                    arg_val = self.function_handler.get_function_arguments(function_name)[i].get_register()
-                    new_inspector, by_ref = self.is_arg_mutated(root, Value(arg_val), checked_states, references)
-
-                    if by_ref:
-                        rhs_is_ref = True
-                    if new_inspector == "mutator":
-                        return "mutator", returns_ref
-                    elif new_inspector == "uncertain":
-                        inspector = new_inspector
-                else:
-                    # print("UNCERTAIN ROOT: {}".format(function_name))
-                    inspector = "uncertain"
-
-        # if an assignment occurred we will specify the context that is assigned
-        if re.match(r'%\d*? = .*?', node_name):
-            variable, expression = node_name.split(" = ")
-
-            # if earlier evaluations concluded in the right hand side being a function call that returns a reference
-            # we will now create an instance signifying said reference
-            if rhs_is_ref and variable not in references:
-                references[variable] = tracked_variable.value
-
-            # if the context is a getelementptr operation in which the tracked variable is used
-            # we now have a reference to the memory in which the variable we are tracking is saved,
-            # and we will store it as such in our Value instance
-            if isinstance(context, Getelementptr):
-                rhs_is_ref = True
-                if variable not in references:
-                    references[variable] = context.get_value()
-                if context.get_value() == tracked_variable.value:
-                    new_val = Value(variable, True)
-                    for out in current_node.get_outs():
-                        new_inspector, ref_ret_found = self.is_arg_mutated(out, new_val, checked_states, references)
-                        returns_ref = returns_ref or ref_ret_found
-                        if new_inspector == "mutator":
-                            return "mutator", returns_ref
-                        elif new_inspector == "uncertain":
-                            inspector = new_inspector
-
-            # if we store in a value obtained via getelementptr, we are actually modifying the memory
-            # of the tracked variable, and we therefore mark the current function as being a mutator
-            elif isinstance(context, Store) and context.get_register() == tracked_variable.value:
-                if tracked_variable.is_reference():
-                    return "mutator", returns_ref
-
-            # if the context uses the variables, and we did not return in the previous two if statements
-            # we will just carry on, using the value that it got assigned to as our new tracked variable
-            if tracked_variable.value in context.get_used_variables():
-                reference_var = None
-                if variable in references:
-                    reference_var = Value(references[variable])
-                for out in current_node.get_outs():
-                    new_inspector, ref_ret_found = self.is_arg_mutated(out, Value(variable, rhs_is_ref),
-                                                                       checked_states, references)
-                    returns_ref = returns_ref or ref_ret_found
-                    if new_inspector == "mutator":
-                        return "mutator", returns_ref
-                    elif new_inspector == "uncertain":
-                        inspector = new_inspector
-
-                    if reference_var is not None:
-                        new_inspector, ref_ret_found = self.is_arg_mutated(out, reference_var,
-                                                                           checked_states, references)
-                        returns_ref = returns_ref or ref_ret_found
-                        if new_inspector == "mutator":
-                            return "mutator", returns_ref
-                        elif new_inspector == "uncertain":
-                            inspector = new_inspector
-
-        # if no assignment occurred, we will just carry on with the current tracked variable
-        reference_var = None
-        if tracked_variable in references:
-            reference_var = Value(references[tracked_variable])
-
-        for out in current_node.get_outs():
-            new_inspector, ref_ret_found = self.is_arg_mutated(out, tracked_variable, checked_states, references)
-            returns_ref = returns_ref or ref_ret_found
-            if new_inspector == "mutator":
-                return "mutator", returns_ref
-            elif new_inspector == "uncertain":
-                inspector = new_inspector
-
-            if reference_var is not None:
-                new_inspector, ref_ret_found = self.is_arg_mutated(out, reference_var, checked_states, references)
-                returns_ref = returns_ref or ref_ret_found
-                if new_inspector == "mutator":
-                    return "mutator", returns_ref
-                elif new_inspector == "uncertain":
-                    inspector = new_inspector
-
-        return inspector, returns_ref
+        return mutation_type
 
     def analyse(self, i):
         while i < len(self.lines):
@@ -794,8 +735,15 @@ class LLVMAnalyser:
                 new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
                 top_node = self.node_stack[self.opened_function][-1]
                 top_node.set_name(new_name)
-                self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
-                self.opened_function_memory.add_node_to_reg(self.assignee, top_node)
+
+                if isinstance(self.rhs, Load):
+                    self.loads[self.opened_function][self.assignee] = self.rhs.get_value()
+
+                elif isinstance(self.rhs, Getelementptr):
+                    self.references[self.opened_function][self.assignee] = self.rhs.get_value()
+
+                elif isinstance(self.rhs, Conversion):
+                    self.conversions[self.opened_function][self.assignee] = self.rhs.get_value()
 
                 self.rhs = None
                 self.assignee = None
@@ -806,7 +754,10 @@ class LLVMAnalyser:
 
     def analyze_define(self, tokens):
         self.opened_function = self.function_handler.identify_function(tokens)
-        self.opened_function_memory = self.function_handler.get_function_memory(self.opened_function)
+        self.stores[self.opened_function] = dict()
+        self.loads[self.opened_function] = dict()
+        self.references[self.opened_function] = dict()
+        self.conversions[self.opened_function] = dict()
         self.graphs[self.opened_function] = Graph()
         self.node_stack[self.opened_function] = list()
         new_node = self.add_node(self.opened_function)
@@ -1037,10 +988,9 @@ class LLVMAnalyser:
 
     def register_store(self, tokens):
         self.rhs = analyze_store(tokens)
-        new_node = self.register_statement("{} = {}".format(self.rhs.get_register(), str(self.rhs.get_value())))
+        self.register_statement("{} = {}".format(self.rhs.get_register(), str(self.rhs.get_value())))
 
-        self.opened_function_memory.assign_value_to_addr(self.rhs.get_register(), self.rhs.get_value())
-        self.opened_function_memory.add_node_to_addr(self.rhs.get_register(), new_node)
+        self.stores[self.opened_function][self.rhs.get_register()] = self.rhs.get_value()
 
     def register_cmpxchg(self, tokens):
         self.rhs = analyze_cmpxchg(tokens)
@@ -1135,7 +1085,6 @@ class LLVMAnalyser:
         self.assignee = tokens[0]
 
     def register_function_end(self):
-        self.opened_function_memory = None
         self.opened_function = None
 
     # create a new node, based upon the statement given
@@ -1163,40 +1112,8 @@ class LLVMAnalyser:
         self.node_stack[self.opened_function].append(new_node)
         return new_node
 
-    # we need to determine what values correspond to the registers used for testing
-    # we will trace the assigned values to registers throughout the function
-    # when it halts at a constant, we stop our trace, and assume that this is a value that is used
-    # to compare against, and not the value under test
-    # in case we encounter a function, we return the first register that is used
-    @staticmethod
-    def check_for_initial_call(token, memory):
-        current = [token]
-        new = list()
 
-        while True:
-            while current:
-                new_token = current.pop(0)
-
-                # assigned by instruction we skipped, therefore assumed to be irrelevant
-                if not memory.is_reg_in_mem(new_token):
-                    continue
-
-                next_rhs = memory.get_val(new_token)
-                if isinstance(next_rhs, Call):
-                    return new_token
-
-                used_var = next_rhs.get_used_variables()
-                if used_var is not None:
-                    new += used_var
-
-            if not new:
-                return None
-
-            current = new
-            new = list()
-
-
-class Value:
+class AssignedValue:
     def __init__(self, value, ref=False):
         self.value = value
         self.memory_ref = ref
@@ -1205,5 +1122,4 @@ class Value:
         return self.memory_ref
 
     def __str__(self):
-        result = self.value
-        return result
+        return self.value

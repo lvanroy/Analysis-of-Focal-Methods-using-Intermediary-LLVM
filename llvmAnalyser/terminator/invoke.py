@@ -230,6 +230,12 @@ class Invoke(LlvmStatement):
     def get_arguments(self):
         return self.arguments
 
+    def get_argument_registers(self):
+        registers = list()
+        for argument in self.arguments:
+            registers.append(argument.get_register())
+        return registers
+
     def add_fn_attr(self, fn_attr):
         self.fn_attrs.append(fn_attr)
 

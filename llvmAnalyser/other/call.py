@@ -201,6 +201,12 @@ class Call(LlvmStatement):
     def get_arguments(self):
         return self.arguments
 
+    def get_argument_registers(self):
+        registers = list()
+        for argument in self.arguments:
+            registers.append(argument.get_register())
+        return registers
+
     def get_function_attributes(self):
         return self.function_attributes
 
