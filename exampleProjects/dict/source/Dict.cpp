@@ -1,4 +1,5 @@
 #include "Dict.h"
+#include <stdlib.h>
 
 void Dict::add_el(int ind, int val) {
     for(tuple<int, int>& element : data){

@@ -2,6 +2,7 @@ from llvmAnalyser.llvmChecker import *
 from llvmAnalyser.memory import Memory
 from llvmAnalyser.types import get_type
 from llvmAnalyser.values import get_value
+from copy import copy
 # LLVM function definitions consist of the “define” keyword, an optional linkage type,
 # an optional runtime preemption specifier, an optional visibility style, an optional DLL storage class,
 # an optional calling convention, an optional unnamed_addr attribute, a return type,
@@ -85,8 +86,13 @@ class FunctionHandler:
         tokens[0] = new_tokens[1]
         func.set_function_name(new_tokens[0])
 
+        final_bracket_token = get_nr_of_tokens_past_last_bracket(tokens)
+
+        if tokens[0] == ")":
+            tokens.pop(0)
+
         # read parameter data
-        while True:
+        while len(tokens) >= final_bracket_token:
             # function without parameters
             if tokens[0] == ")":
                 tokens.pop(0)
@@ -100,16 +106,11 @@ class FunctionHandler:
                 func.add_parameter(parameter)
                 break
 
+            old_tokens = copy(tokens)
+
             # read parameter type
             parameter_type, tokens = get_type(tokens)
             parameter.set_parameter_type(parameter_type)
-
-            # parameter with only parameter type
-            if tokens[0] == ",":
-                parameter.set_register("%{}".format(func.get_number_of_parameters()))
-                func.add_parameter(parameter)
-                tokens.pop(0)
-                continue
 
             # read all parameter attributes
             if is_group_attribute(tokens[0]):
@@ -119,19 +120,43 @@ class FunctionHandler:
                 while is_parameter_attribute(tokens[0]):
                     open_brackets = tokens[0].count("(") - tokens[0].count(")")
                     attribute = tokens.pop(0)
-                    while open_brackets != 0 or attribute == "align":
-                        open_brackets += tokens[0].count("(") - tokens[0].count(")")
+                    while True:
+                        if open_brackets <= 0:
+                            break
+                        for j in range(len(tokens[0])):
+                            char = tokens[0][j]
+                            if char == "(":
+                                open_brackets += 1
+                            elif char == ")":
+                                open_brackets -= 1
+                            if open_brackets == 0:
+                                tokens[0] = tokens[0][:j+1]
+                                break
                         attribute += " {}".format(tokens.pop(0))
+                    if attribute == "align":
+                        attribute += " {}".format(tokens.pop(0))
+
+                    # pop end of argument comma
+                    if attribute[-1] == ",":
+                        attribute = attribute.rsplit(",", 1)[0]
+
+                    # pop end of argument list bracket
+                    if attribute[-1] == ")" and open_brackets == -1:
+                        attribute = attribute.rsplit(")", 1)[0]
+
                     parameter.add_parameter_attribute(attribute)
+
+            # parameter with only parameter type
+            # this can be detected by a comma being directly behind the type, or the number of tokens being lower than
+            # the token in which the final bracket was found
+            if old_tokens[len(old_tokens) - len(tokens) - 1][-1] == "," or len(tokens) < final_bracket_token:
+                parameter.set_register("%{}".format(func.get_number_of_parameters()))
+                func.add_parameter(parameter)
+                continue
 
             # read parameter name
             if "%" in tokens[0]:
                 parameter.set_register(tokens[0].replace(",", "").replace(")", ""))
-
-            # read final parameter attribute
-            elif "," in tokens[0]:
-                parameter.add_parameter_attribute(tokens[0].replace(",").replace(")", ""))
-                parameter.set_register("%{}".format(func.get_number_of_parameters()))
 
             func.add_parameter(parameter)
             final = ')' in tokens[0]
@@ -274,6 +299,21 @@ class FunctionHandler:
         for key in self.functions:
             result += "{}\n".format(str(self.functions[key]))
         return result
+
+
+def get_nr_of_tokens_past_last_bracket(tokens):
+    open_brackets = 1
+
+    # loop over the tokens until this first bracket is closed again, when this happens, return the index
+    for i in range(len(tokens)):
+        for j in range(len(tokens[i])):
+            char = tokens[i][j]
+            if char == "(":
+                open_brackets += 1
+            elif char == ")":
+                open_brackets -= 1
+            if open_brackets == 0:
+                return len(tokens) - i
 
 
 # this class will define a function specified within llvm

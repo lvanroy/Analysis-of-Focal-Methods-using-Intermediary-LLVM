@@ -1,9 +1,8 @@
 from yaml import load
 from os import path, getcwd
-from subprocess import call, DEVNULL, run
+from shutil import which
+from subprocess import call, DEVNULL
 from argparse import ArgumentParser
-
-import re
 
 try:
     from yaml import CLoader as Loader, CDumper as Dumper
@@ -11,6 +10,32 @@ except ImportError:
     from yaml import Loader, Dumper
 
 config = load(open('config.yml').read(), Loader=Loader)
+
+print("[1/4]: Validating environment - started")
+
+if which("clang-6.0") is None:
+    print("Error: This tool requires clang to operate, please install clang and try again.")
+    exit(0)
+else:
+    print("-- clang found")
+
+if which("cmake") is None:
+    print("Error: This tool requires Cmake to operate, please install Cmake and try again.")
+    exit(0)
+else:
+    print("-- Cmake found")
+
+if which("make") is None:
+    print("Error: This tool requires make to operate, please install make and try again.")
+    exit(0)
+else:
+    print("-- make found")
+
+if which("llvm-link-6.0") is None:
+    print("Error: This tool requires llvm to operate, please install llvm and try again.")
+    exit(0)
+else:
+    print("-- llvm found")
 
 
 def create_build_dir(project_path):
@@ -53,17 +78,17 @@ def build_project(project_path):
                 continue
             print("compiling: {}".format(line))
             if line[-2:] == ".c":
-                call(["clang", "-S", "-emit-llvm", line] + includes,
+                call(["clang-6.0", "-S", "-emit-llvm", line] + includes,
                      cwd="{}/llvm_submodules".format(build_path))
             else:
-                call(["clang++", "-std=c++17", "-S", "-emit-llvm", line] + includes,
+                call(["clang++-6.0", "-std=c++17", "-S", "-emit-llvm", line] + includes,
                      cwd="{}/llvm_submodules".format(build_path))
             print("done")
 
     f.close()
 
-    call(["llvm-link *.ll -o linked.bc"], cwd="{}/llvm_submodules".format(build_path), shell=True)
-    call(["llvm-dis", "./llvm_submodules/linked.bc", "-o", "linked.ll"], cwd=build_path)
+    call(["llvm-link-6.0 *.ll -o linked.bc"], cwd="{}/llvm_submodules".format(build_path), shell=True)
+    call(["llvm-dis-6.0", "./llvm_submodules/linked.bc", "-o", "linked.ll"], cwd=build_path)
 
 
 parser = ArgumentParser(description='Compiler capable of compiling c++ project using cmake to LLVM IR.')

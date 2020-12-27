@@ -54,8 +54,10 @@ def check_for_function_type(specified_type, tokens):
         open_counter -= tokens[0].count(")")
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
-        if open_counter == 0:
+        if open_counter <= 0:
             if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
+            if specified_type[-1] == ")" and open_counter < 0:
                 specified_type = specified_type[:-1]
             return specified_type, tokens
 

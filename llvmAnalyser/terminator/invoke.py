@@ -90,7 +90,7 @@ def analyze_invoke(tokens):
             attribute = tokens.pop(0)
             while open_brackets != 0 or attribute == "align":
                 open_brackets += tokens[0].count("(") - tokens[0].count(")")
-                attribute += tokens.pop(0)
+                attribute += " {}".format(tokens.pop(0))
             argument.add_parameter_attribute(attribute)
 
         # read register

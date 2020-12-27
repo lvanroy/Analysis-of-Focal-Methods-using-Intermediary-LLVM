@@ -48,6 +48,10 @@ class TestLLVMTypes(unittest.TestCase):
         self.assertEqual(get_array_type(["<{i8,", "i32}>", "*"]), None)
         self.assertEqual(get_array_type(["<4", "x", "i64*>*"]), None)
         self.assertEqual(get_array_type(["void", "a(i32*", "i8)"][0]), None)
+        result = get_type(['%"class.testing::Message"*', '(%"class.std::basic_ostream"*)*)', '#3',
+                           'comdat', 'align', '2', '{'])
+        self.assertEqual(result[0], '%"class.testing::Message"* (%"class.std::basic_ostream"*)*')
+        self.assertEqual(result[1], ['#3', 'comdat', 'align', '2', '{'])
 
     def test_function_type(self):
         self.assertEqual(get_vector_type(["<4", "x", "i32>(i32)"])[0], "<4 x i32>(i32)")

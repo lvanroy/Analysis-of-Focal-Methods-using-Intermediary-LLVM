@@ -39,14 +39,14 @@ def is_group_attribute(token):
 
 
 def is_parameter_attribute(token):
-    is_attr = token in {"zeroext", "signext", "inreg", "byval", "inalloca",
-                        "sret", "noalias", "nocapture", "nofree", "nest",
-                        "returned", "nonnull", "swiftself", "swifterror",
-                        "immarg", "noundef", "align"}
-    is_attr = is_attr or re.match(r'^byval(.*?)?', token) or re.match(r'^byref(.*?)?', token)
-    is_attr = is_attr or re.match(r'^preallocated(.*?)?', token) or re.match(r'^dereferenceable(.*?)?', token)
-    is_attr = is_attr or re.match(r'^align(.*?)?', token) or re.match(r'dereferenceable_or_null(.*?)?', token)
-    is_attr = is_attr or re.match(r'^sret(.*)?', token)
+    is_attr = token.replace(",", "") in {"zeroext", "signext", "inreg", "byval", "inalloca",
+                                         "sret", "noalias", "nocapture", "nofree", "nest",
+                                         "returned", "nonnull", "swiftself", "swifterror",
+                                         "immarg", "noundef", "align"}
+    is_attr = is_attr or re.match(r'^byval\(.*?\)?,?', token) or re.match(r'^byref\(.*?\)?', token)
+    is_attr = is_attr or re.match(r'^preallocated\(.*?\)?,?', token) or re.match(r'^dereferenceable\(.*?\)?,?', token)
+    is_attr = is_attr or re.match(r'^align\(.*?\)?,?', token) or re.match(r'dereferenceable_or_null\(.*?\)?,?', token)
+    is_attr = is_attr or re.match(r'^sret\(.*\)?,?', token)
     return is_attr
 
 

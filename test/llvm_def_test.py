@@ -18,8 +18,8 @@ from llvmAnalyser.function import FunctionHandler
 #        [prologue Constant] [personality Constant] (!name !N)* { ... }
 
 
-class TestLLVMDecl(unittest.TestCase):
-    def test_decl_no_args(self):
+class TestLLVMDef(unittest.TestCase):
+    def test_def_no_args(self):
         handler = FunctionHandler()
 
         line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
@@ -53,7 +53,7 @@ class TestLLVMDecl(unittest.TestCase):
         self.assertEqual(function.get_metadata()[0], "!foo")
         self.assertEqual(len(function.get_metadata()), 1)
 
-    def test_decl_many_func_attrs(self):
+    def test_def_many_func_attrs(self):
         handler = FunctionHandler()
 
         line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
@@ -94,7 +94,7 @@ class TestLLVMDecl(unittest.TestCase):
         self.assertEqual(function.get_metadata()[0], "!foo")
         self.assertEqual(len(function.get_metadata()), 1)
 
-    def test_decl_no_arg_attributes(self):
+    def test_def_no_arg_attributes(self):
         handler = FunctionHandler()
 
         line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
@@ -135,7 +135,7 @@ class TestLLVMDecl(unittest.TestCase):
         self.assertEqual(function.get_metadata()[0], "!foo")
         self.assertEqual(len(function.get_metadata()), 1)
 
-    def test_decl_with_arg_attributes(self):
+    def test_def_with_arg_attributes(self):
         handler = FunctionHandler()
 
         line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
@@ -164,6 +164,90 @@ class TestLLVMDecl(unittest.TestCase):
         self.assertEqual(function.get_parameters()[1].get_parameter_type(), "i8")
         self.assertEqual(function.get_parameters()[1].get_parameter_attributes(),
                          ["align 8", "dereferenceable_or_null(8)"])
+        self.assertEqual(function.get_unnamed_address(), "unnamed_addr")
+        self.assertEqual(function.get_address_space(), "#6")
+        self.assertEqual(function.get_function_attribute()[0], "allocsize(4, 8)")
+        self.assertEqual(len(function.get_function_attribute()), 1)
+        self.assertEqual(function.get_section(), '".text.startup"')
+        self.assertEqual(function.get_comdat(), "foo")
+        self.assertEqual(function.get_alignment(), "8")
+        self.assertEqual(function.get_garbage_collector_name(), '"Erlang"')
+        self.assertEqual(function.get_prefix(), "i32 4")
+        self.assertEqual(function.get_prologue(), "i8 144")
+        self.assertEqual(function.get_personality(), "i8* bitcast i32 (...)* @__gxx_personality_v0 to i8*")
+        self.assertEqual(function.get_metadata()[0], "!foo")
+        self.assertEqual(len(function.get_metadata()), 1)
+
+    def test_def_with_no_arg_reg(self):
+        handler = FunctionHandler()
+
+        line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
+        line += 'foo(i32, i8) unnamed_addr #6 allocsize(4, 8) section ".text.startup" comdat(foo) align 8 '
+        line += 'gc "Erlang" prefix i32 4 prologue i8 144 '
+        line += 'personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !foo {'
+
+        function_name = handler.identify_function(line.split(" "))
+
+        function = handler.get_function(function_name)
+        self.assertEqual(function.get_linkage_type(), "private")
+        self.assertEqual(function.get_runtime_preemption(), "dso_preemptable")
+        self.assertEqual(function.get_visibility_style(), "protected")
+        self.assertEqual(function.get_dll_storage_class(), "dllimport")
+        self.assertEqual(function.get_calling_convention(), "cc 10")
+        self.assertEqual(function.get_return_parameter_attribute(), "align 8")
+        self.assertEqual(function.get_return_type(), '%"class.std::shared_ptr.30"*')
+        self.assertEqual(function.get_function_name(), "foo")
+        self.assertEqual(function.get_number_of_parameters(), 2)
+        self.assertEqual(function.get_parameters()[0].get_register(), "%0")
+        self.assertEqual(function.get_parameters()[0].get_parameter_type(), "i32")
+        self.assertEqual(function.get_parameters()[0].get_parameter_attributes(), list())
+        self.assertEqual(function.get_parameters()[1].get_register(), "%1")
+        self.assertEqual(function.get_parameters()[1].get_parameter_type(), "i8")
+        self.assertEqual(function.get_parameters()[1].get_parameter_attributes(), list())
+        self.assertEqual(function.get_unnamed_address(), "unnamed_addr")
+        self.assertEqual(function.get_address_space(), "#6")
+        self.assertEqual(function.get_function_attribute()[0], "allocsize(4, 8)")
+        self.assertEqual(len(function.get_function_attribute()), 1)
+        self.assertEqual(function.get_section(), '".text.startup"')
+        self.assertEqual(function.get_comdat(), "foo")
+        self.assertEqual(function.get_alignment(), "8")
+        self.assertEqual(function.get_garbage_collector_name(), '"Erlang"')
+        self.assertEqual(function.get_prefix(), "i32 4")
+        self.assertEqual(function.get_prologue(), "i8 144")
+        self.assertEqual(function.get_personality(), "i8* bitcast i32 (...)* @__gxx_personality_v0 to i8*")
+        self.assertEqual(function.get_metadata()[0], "!foo")
+        self.assertEqual(len(function.get_metadata()), 1)
+
+    def test_def_with_arg_attr_but_no_reg(self):
+        handler = FunctionHandler()
+
+        line = 'define private dso_preemptable protected dllimport cc 10 align 8 %"class.std::shared_ptr.30"* '
+        line += 'foo(i32 zeroext byref(i32) sret, i8 align 8 dereferenceable_or_null(8)) unnamed_addr #6 '
+        line += 'allocsize(4, 8) section ".text.startup" comdat(foo) align 8 gc "Erlang" prefix i32 4 prologue i8 144 '
+        line += 'personality i8* bitcast (i32 (...)* @__gxx_personality_v0 to i8*) !foo {'
+
+        function_name = handler.identify_function(line.split(" "))
+
+        function = handler.get_function(function_name)
+
+        self.assertEqual(function.get_linkage_type(), "private")
+        self.assertEqual(function.get_runtime_preemption(), "dso_preemptable")
+        self.assertEqual(function.get_visibility_style(), "protected")
+        self.assertEqual(function.get_dll_storage_class(), "dllimport")
+        self.assertEqual(function.get_calling_convention(), "cc 10")
+        self.assertEqual(function.get_return_parameter_attribute(), "align 8")
+        self.assertEqual(function.get_return_type(), '%"class.std::shared_ptr.30"*')
+        self.assertEqual(function.get_function_name(), "foo")
+        self.assertEqual(function.get_number_of_parameters(), 2)
+        self.assertEqual(function.get_parameters()[0].get_register(), "%0")
+        self.assertEqual(function.get_parameters()[0].get_parameter_type(), "i32")
+        self.assertEqual(function.get_parameters()[0].get_parameter_attributes()[0], "zeroext")
+        self.assertEqual(function.get_parameters()[0].get_parameter_attributes()[1], "byref(i32)")
+        self.assertEqual(function.get_parameters()[0].get_parameter_attributes()[2], "sret")
+        self.assertEqual(function.get_parameters()[1].get_register(), "%1")
+        self.assertEqual(function.get_parameters()[1].get_parameter_type(), "i8")
+        self.assertEqual(function.get_parameters()[1].get_parameter_attributes()[0], "align 8")
+        self.assertEqual(function.get_parameters()[1].get_parameter_attributes()[1], "dereferenceable_or_null(8)")
         self.assertEqual(function.get_unnamed_address(), "unnamed_addr")
         self.assertEqual(function.get_address_space(), "#6")
         self.assertEqual(function.get_function_attribute()[0], "allocsize(4, 8)")
