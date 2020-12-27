@@ -27,6 +27,8 @@ class TestTool(unittest.TestCase):
 
         focal_methods = get_focal_methods(llvm_path, 1)
 
+        print(focal_methods)
+
         self.assertEqual(len(focal_methods), 1)
         self.assertEqual(len(focal_methods["@_ZN19StackTest_push_Test8TestBodyEv"]), 1)
         self.assertEqual(focal_methods["@_ZN19StackTest_push_Test8TestBodyEv"].pop(), "@_ZN5Stack4pushEi")
@@ -36,13 +38,11 @@ class TestTool(unittest.TestCase):
 
         focal_methods = get_focal_methods(llvm_path, 5)
 
+        print(focal_methods)
+
         self.assertEqual(len(focal_methods), 1)
-        self.assertEqual(len(focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"]), 4)
-        self.assertTrue("@_ZN7Profile12getFirstNameB5cxx11Ev" in
-                        focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"])
+        self.assertEqual(len(focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"]), 1)
         self.assertTrue("@_ZN7Profile12setFirstNameENSt7__cxx1112basic_stringIcSt11char_traitsIcESaIcEEE" in
-                        focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"])
-        self.assertTrue("@_ZN7ProfileC2Ev" in
                         focal_methods["@_ZN31ProfileTester_setFirstName_Test8TestBodyEv"])
 
     def test_dict(self):
