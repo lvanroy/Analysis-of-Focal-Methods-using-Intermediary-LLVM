@@ -2,7 +2,6 @@
 venv
 build
 env
-Documentation
 plots
 temp
 __pycache__

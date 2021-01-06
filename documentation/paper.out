@@ -1,0 +1,13 @@
+\BOOKMARK [1][-]{section.1}{Introduction}{}% 1
+\BOOKMARK [1][-]{section.2}{Related work}{}% 2
+\BOOKMARK [1][-]{section.3}{LLVM IR}{}% 3
+\BOOKMARK [1][-]{section.4}{Identifying focal methods}{}% 4
+\BOOKMARK [2][-]{subsection.4.1}{Motivation}{section.4}% 5
+\BOOKMARK [2][-]{subsection.4.2}{LLVM IR analysis}{section.4}% 6
+\BOOKMARK [2][-]{subsection.4.3}{Focal methods}{section.4}% 7
+\BOOKMARK [1][-]{section.5}{Case study}{}% 8
+\BOOKMARK [2][-]{subsection.5.1}{Stride}{section.5}% 9
+\BOOKMARK [2][-]{subsection.5.2}{Research questions}{section.5}% 10
+\BOOKMARK [2][-]{subsection.5.3}{Results}{section.5}% 11
+\BOOKMARK [1][-]{section.6}{Threats to validity}{}% 12
+\BOOKMARK [1][-]{section.7}{Conclusion}{}% 13

@@ -1,0 +1,706 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.1 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated as
+% required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+\datalist[entry]{nty/global//global/global}
+  \entry{10.1007/978-3-540-73101-6_14}{inproceedings}{}
+    \name{author}{4}{}{%
+      {{hash=BP}{%
+         family={Bouillon},
+         familyi={B\bibinitperiod},
+         given={Philipp},
+         giveni={P\bibinitperiod},
+      }}%
+      {{hash=KJ}{%
+         family={Krinke},
+         familyi={K\bibinitperiod},
+         given={Jens},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=MN}{%
+         family={Meyer},
+         familyi={M\bibinitperiod},
+         given={Nils},
+         giveni={N\bibinitperiod},
+      }}%
+      {{hash=SF}{%
+         family={Steimann},
+         familyi={S\bibinitperiod},
+         given={Friedrich},
+         giveni={F\bibinitperiod},
+      }}%
+    }
+    \name{editor}{4}{}{%
+      {{hash=CG}{%
+         family={Concas},
+         familyi={C\bibinitperiod},
+         given={Giulio},
+         giveni={G\bibinitperiod},
+      }}%
+      {{hash=DE}{%
+         family={Damiani},
+         familyi={D\bibinitperiod},
+         given={Ernesto},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=SM}{%
+         family={Scotto},
+         familyi={S\bibinitperiod},
+         given={Marco},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=SG}{%
+         family={Succi},
+         familyi={S\bibinitperiod},
+         given={Giancarlo},
+         giveni={G\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Springer Berlin Heidelberg}%
+    }
+    \strng{namehash}{BP+1}
+    \strng{fullhash}{BPKJMNSF1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{B}
+    \field{sortinithash}{B}
+    \field{abstract}{%
+    Unit testing is essential in the agile context. A unit test case written
+  long ago may uncover an error introduced only recently, at a time at which
+  awareness of the test and the requirement it expresses may have long
+  vanished. Popular unit testing frameworks such as JUnit may then detect the
+  error at little more cost than the run of a static program checker
+  (compiler). However, unlike such checkers current unit testing frameworks can
+  only detect the presence of errors, they cannot locate them. With EzUnit, we
+  present an extension to the JUnitEclipse plug-in that serves to narrow down
+  error locations, and that marks these locations in the source code in very
+  much the same way syntactic and typing errors are displayed. Because EzUnit
+  is itself designed as a framework, it can be extended by algorithms further
+  narrowing down error locations.%
+    }
+    \field{booktitle}{Agile Processes in Software Engineering and Extreme
+  Programming}
+    \field{isbn}{978-3-540-73101-6}
+    \field{pages}{101\bibrangedash 104}
+    \field{title}{EzUnit: A Framework for Associating Failed Unit Tests with
+  Potential Programming Errors}
+    \list{location}{1}{%
+      {Berlin, Heidelberg}%
+    }
+    \field{year}{2007}
+  \endentry
+
+  \entry{8823709}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=CV}{%
+         family={{Csuvik}},
+         familyi={C\bibinitperiod},
+         given={V.},
+         giveni={V\bibinitperiod},
+      }}%
+      {{hash=KA}{%
+         family={{Kicsi}},
+         familyi={K\bibinitperiod},
+         given={A.},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=VL}{%
+         family={{Vidács}},
+         familyi={V\bibinitperiod},
+         given={L.},
+         giveni={L\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{CVKAVL1}
+    \strng{fullhash}{CVKAVL1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{C}
+    \field{sortinithash}{C}
+    \field{booktitle}{2019 IEEE/ACM 10th International Symposium on Software
+  and Systems Traceability (SST)}
+    \verb{doi}
+    \verb 10.1109/SST.2019.00016
+    \endverb
+    \field{pages}{29\bibrangedash 36}
+    \field{title}{Source Code Level Word Embeddings in Aiding Semantic
+  Test-to-Code Traceability}
+    \field{year}{2019}
+  \endentry
+
+  \entry{10.1007/978-3-030-24305-0_40}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=CV}{%
+         family={Csuvik},
+         familyi={C\bibinitperiod},
+         given={Viktor},
+         giveni={V\bibinitperiod},
+      }}%
+      {{hash=KA}{%
+         family={Kicsi},
+         familyi={K\bibinitperiod},
+         given={Andr{\'a}s},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=VL}{%
+         family={Vid{\'a}cs},
+         familyi={V\bibinitperiod},
+         given={L{\'a}szl{\'o}},
+         giveni={L\bibinitperiod},
+      }}%
+    }
+    \name{editor}{10}{}{%
+      {{hash=MS}{%
+         family={Misra},
+         familyi={M\bibinitperiod},
+         given={Sanjay},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=GO}{%
+         family={Gervasi},
+         familyi={G\bibinitperiod},
+         given={Osvaldo},
+         giveni={O\bibinitperiod},
+      }}%
+      {{hash=MB}{%
+         family={Murgante},
+         familyi={M\bibinitperiod},
+         given={Beniamino},
+         giveni={B\bibinitperiod},
+      }}%
+      {{hash=SE}{%
+         family={Stankova},
+         familyi={S\bibinitperiod},
+         given={Elena},
+         giveni={E\bibinitperiod},
+      }}%
+      {{hash=KV}{%
+         family={Korkhov},
+         familyi={K\bibinitperiod},
+         given={Vladimir},
+         giveni={V\bibinitperiod},
+      }}%
+      {{hash=TC}{%
+         family={Torre},
+         familyi={T\bibinitperiod},
+         given={Carmelo},
+         giveni={C\bibinitperiod},
+      }}%
+      {{hash=RAMA}{%
+         family={Rocha},
+         familyi={R\bibinitperiod},
+         given={Ana Maria\bibnamedelima A.C.},
+         giveni={A\bibinitperiod\bibinitdelim M\bibinitperiod\bibinitdelim
+  A\bibinitperiod},
+      }}%
+      {{hash=TD}{%
+         family={Taniar},
+         familyi={T\bibinitperiod},
+         given={David},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=ABO}{%
+         family={Apduhan},
+         familyi={A\bibinitperiod},
+         given={Bernady\bibnamedelima O.},
+         giveni={B\bibinitperiod\bibinitdelim O\bibinitperiod},
+      }}%
+      {{hash=TE}{%
+         family={Tarantino},
+         familyi={T\bibinitperiod},
+         given={Eufemia},
+         giveni={E\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Springer International Publishing}%
+    }
+    \strng{namehash}{CVKAVL2}
+    \strng{fullhash}{CVKAVL2}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{C}
+    \field{sortinithash}{C}
+    \field{abstract}{%
+    Automatic recovery of test-to-code traceability links is an important task
+  in many areas of software engineering, like quality assurance and code
+  maintenance. The research community has shown great interest in such a topic
+  and has developed several techniques that already made significant advances
+  in the field. These techniques include text-based learning algorithms, of
+  which corpus is built from the source code of the software components.
+  Several techniques based on information retrieval have been benchmarked, but
+  the capabilities of many learning algorithms have not yet been tested. In
+  this work we examine the textual similarity measures produced by three
+  different machine learning techniques for the recovery of traceability
+  information while also considering various textual representations of the
+  source code. The obtained results are evaluated on 4 open source systems
+  based on naming conventions. We have been able to improve the current textual
+  similarity based state-of-the-art results in the case of each evaluated
+  system.%
+    }
+    \field{booktitle}{Computational Science and Its Applications -- ICCSA 2019}
+    \field{isbn}{978-3-030-24305-0}
+    \field{pages}{529\bibrangedash 543}
+    \field{title}{Evaluation of Textual Similarity Techniques in Code Level
+  Traceability}
+    \list{location}{1}{%
+      {Cham}%
+    }
+    \field{year}{2019}
+  \endentry
+
+  \entry{6080780}{inproceedings}{}
+    \name{author}{4}{}{%
+      {{hash=GM}{%
+         family={{Gethers}},
+         familyi={G\bibinitperiod},
+         given={M.},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=OR}{%
+         family={{Oliveto}},
+         familyi={O\bibinitperiod},
+         given={R.},
+         giveni={R\bibinitperiod},
+      }}%
+      {{hash=PD}{%
+         family={{Poshyvanyk}},
+         familyi={P\bibinitperiod},
+         given={D.},
+         giveni={D\bibinitperiod},
+      }}%
+      {{hash=LAD}{%
+         family={{Lucia}},
+         familyi={L\bibinitperiod},
+         given={A.\bibnamedelima D.},
+         giveni={A\bibinitperiod\bibinitdelim D\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{GM+1}
+    \strng{fullhash}{GMORPDLAD1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{G}
+    \field{sortinithash}{G}
+    \field{booktitle}{2011 27th IEEE International Conference on Software
+  Maintenance (ICSM)}
+    \verb{doi}
+    \verb 10.1109/ICSM.2011.6080780
+    \endverb
+    \field{pages}{133\bibrangedash 142}
+    \field{title}{On integrating orthogonal information retrieval methods to
+  improve traceability recovery}
+    \field{year}{2011}
+  \endentry
+
+  \entry{7335402}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=GM}{%
+         family={{Ghafari}},
+         familyi={G\bibinitperiod},
+         given={M.},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=GC}{%
+         family={{Ghezzi}},
+         familyi={G\bibinitperiod},
+         given={C.},
+         giveni={C\bibinitperiod},
+      }}%
+      {{hash=RK}{%
+         family={{Rubinov}},
+         familyi={R\bibinitperiod},
+         given={K.},
+         giveni={K\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{GMGCRK1}
+    \strng{fullhash}{GMGCRK1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{G}
+    \field{sortinithash}{G}
+    \field{booktitle}{2015 IEEE 15th International Working Conference on Source
+  Code Analysis and Manipulation (SCAM)}
+    \verb{doi}
+    \verb 10.1109/SCAM.2015.7335402
+    \endverb
+    \field{pages}{61\bibrangedash 70}
+    \field{title}{Automatically identifying focal methods under test in unit
+  test cases}
+    \field{year}{2015}
+  \endentry
+
+  \entry{6298092}{inproceedings}{}
+    \name{author}{4}{}{%
+      {{hash=HTD}{%
+         family={{Hellmann}},
+         familyi={H\bibinitperiod},
+         given={T.\bibnamedelima D.},
+         giveni={T\bibinitperiod\bibinitdelim D\bibinitperiod},
+      }}%
+      {{hash=SA}{%
+         family={{Sharma}},
+         familyi={S\bibinitperiod},
+         given={A.},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=FJ}{%
+         family={{Ferreira}},
+         familyi={F\bibinitperiod},
+         given={J.},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=MF}{%
+         family={{Maurer}},
+         familyi={M\bibinitperiod},
+         given={F.},
+         giveni={F\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{HTD+1}
+    \strng{fullhash}{HTDSAFJMF1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{H}
+    \field{sortinithash}{H}
+    \field{booktitle}{2012 Agile Conference}
+    \verb{doi}
+    \verb 10.1109/Agile.2012.8
+    \endverb
+    \field{pages}{55\bibrangedash 63}
+    \field{title}{Agile Testing: Past, Present, and Future -- Charting a
+  Systematic Map of Testing in Agile Software Development}
+    \field{year}{2012}
+  \endentry
+
+  \entry{hurdugaci2012aiding}{inproceedings}{}
+    \name{author}{2}{}{%
+      {{hash=HV}{%
+         family={Hurdugaci},
+         familyi={H\bibinitperiod},
+         given={Victor},
+         giveni={V\bibinitperiod},
+      }}%
+      {{hash=ZA}{%
+         family={Zaidman},
+         familyi={Z\bibinitperiod},
+         given={Andy},
+         giveni={A\bibinitperiod},
+      }}%
+    }
+    \list{organization}{1}{%
+      {IEEE}%
+    }
+    \strng{namehash}{HVZA1}
+    \strng{fullhash}{HVZA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{H}
+    \field{sortinithash}{H}
+    \field{booktitle}{2012 16th European Conference on Software Maintenance and
+  Reengineering}
+    \field{pages}{11\bibrangedash 20}
+    \field{title}{Aiding software developers to maintain developer tests}
+    \field{year}{2012}
+  \endentry
+
+  \entry{8452876}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=KA}{%
+         family={{Kicsi}},
+         familyi={K\bibinitperiod},
+         given={A.},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=TL}{%
+         family={{Tóth}},
+         familyi={T\bibinitperiod},
+         given={L.},
+         giveni={L\bibinitperiod},
+      }}%
+      {{hash=VL}{%
+         family={{Vidács}},
+         familyi={V\bibinitperiod},
+         given={L.},
+         giveni={L\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{KATLVL1}
+    \strng{fullhash}{KATLVL1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{K}
+    \field{sortinithash}{K}
+    \field{booktitle}{2018 IEEE/ACM 6th International Workshop on Realizing
+  Artificial Intelligence Synergies in Software Engineering (RAISE)}
+    \field{pages}{8\bibrangedash 14}
+    \field{title}{Exploring the Benefits of Utilizing Conceptual Information in
+  Test-to-Code Traceability}
+    \field{year}{2018}
+  \endentry
+
+  \entry{lattner2002llvm}{thesis}{}
+    \name{author}{1}{}{%
+      {{hash=LCA}{%
+         family={Lattner},
+         familyi={L\bibinitperiod},
+         given={Chris\bibnamedelima Arthur},
+         giveni={C\bibinitperiod\bibinitdelim A\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{LCA1}
+    \strng{fullhash}{LCA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{L}
+    \field{sortinithash}{L}
+    \field{title}{LLVM: An infrastructure for multi-stage optimization}
+    \list{institution}{1}{%
+      {University of Illinois at Urbana-Champaign}%
+    }
+    \field{type}{phdthesis}
+    \field{year}{2002}
+  \endentry
+
+  \entry{6862933}{article}{}
+    \name{author}{3}{}{%
+      {{hash=PRM}{%
+         family={{Parizi}},
+         familyi={P\bibinitperiod},
+         given={R.\bibnamedelima M.},
+         giveni={R\bibinitperiod\bibinitdelim M\bibinitperiod},
+      }}%
+      {{hash=LSP}{%
+         family={{Lee}},
+         familyi={L\bibinitperiod},
+         given={S.\bibnamedelima P.},
+         giveni={S\bibinitperiod\bibinitdelim P\bibinitperiod},
+      }}%
+      {{hash=DM}{%
+         family={{Dabbagh}},
+         familyi={D\bibinitperiod},
+         given={M.},
+         giveni={M\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{PRMLSPDM1}
+    \strng{fullhash}{PRMLSPDM1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{P}
+    \field{sortinithash}{P}
+    \verb{doi}
+    \verb 10.1109/TR.2014.2338254
+    \endverb
+    \field{number}{4}
+    \field{pages}{913\bibrangedash 926}
+    \field{title}{Achievements and Challenges in State-of-the-Art Software
+  Traceability Between Test and Code Artifacts}
+    \field{volume}{63}
+    \field{journaltitle}{IEEE Transactions on Reliability}
+    \field{year}{2014}
+  \endentry
+
+  \entry{qusef2014recovering}{article}{}
+    \name{author}{5}{}{%
+      {{hash=QA}{%
+         family={Qusef},
+         familyi={Q\bibinitperiod},
+         given={Abdallah},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=BG}{%
+         family={Bavota},
+         familyi={B\bibinitperiod},
+         given={Gabriele},
+         giveni={G\bibinitperiod},
+      }}%
+      {{hash=OR}{%
+         family={Oliveto},
+         familyi={O\bibinitperiod},
+         given={Rocco},
+         giveni={R\bibinitperiod},
+      }}%
+      {{hash=DLA}{%
+         family={De\bibnamedelima Lucia},
+         familyi={D\bibinitperiod\bibinitdelim L\bibinitperiod},
+         given={Andrea},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=BD}{%
+         family={Binkley},
+         familyi={B\bibinitperiod},
+         given={Dave},
+         giveni={D\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Elsevier}%
+    }
+    \strng{namehash}{QA+1}
+    \strng{fullhash}{QABGORDLABD1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{Q}
+    \field{sortinithash}{Q}
+    \field{pages}{147\bibrangedash 168}
+    \field{title}{Recovering test-to-code traceability using slicing and
+  textual analysis}
+    \field{volume}{88}
+    \field{journaltitle}{Journal of Systems and Software}
+    \field{year}{2014}
+  \endentry
+
+  \entry{van2009establishing}{inproceedings}{}
+    \name{author}{2}{}{%
+      {{hash=VRB}{%
+         family={Van\bibnamedelima Rompaey},
+         familyi={V\bibinitperiod\bibinitdelim R\bibinitperiod},
+         given={Bart},
+         giveni={B\bibinitperiod},
+      }}%
+      {{hash=DS}{%
+         family={Demeyer},
+         familyi={D\bibinitperiod},
+         given={Serge},
+         giveni={S\bibinitperiod},
+      }}%
+    }
+    \list{organization}{1}{%
+      {IEEE}%
+    }
+    \strng{namehash}{VRBDS1}
+    \strng{fullhash}{VRBDS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{V}
+    \field{sortinithash}{V}
+    \field{booktitle}{2009 13th European Conference on Software Maintenance and
+  Reengineering}
+    \field{pages}{209\bibrangedash 218}
+    \field{title}{Establishing traceability links between unit test cases and
+  units under test}
+    \field{year}{2009}
+  \endentry
+
+  \entry{10.1145/3278186.3278190}{inproceedings}{}
+    \name{author}{4}{}{%
+      {{hash=VS}{%
+         family={Vercammen},
+         familyi={V\bibinitperiod},
+         given={Sten},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=GM}{%
+         family={Ghafari},
+         familyi={G\bibinitperiod},
+         given={Mohammad},
+         giveni={M\bibinitperiod},
+      }}%
+      {{hash=DS}{%
+         family={Demeyer},
+         familyi={D\bibinitperiod},
+         given={Serge},
+         giveni={S\bibinitperiod},
+      }}%
+      {{hash=BM}{%
+         family={Borg},
+         familyi={B\bibinitperiod},
+         given={Markus},
+         giveni={M\bibinitperiod},
+      }}%
+    }
+    \list{publisher}{1}{%
+      {Association for Computing Machinery}%
+    }
+    \keyw{Mutation testing, Software testing, Focal methods, Feasibility study}
+    \strng{namehash}{VS+1}
+    \strng{fullhash}{VSGMDSBM1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{V}
+    \field{sortinithash}{V}
+    \field{abstract}{%
+    Mutation testing is the state-of-the-art technique for assessing the
+  fault-detection capacity of a test suite. Unfortunately, mutation testing
+  consumes enormous computing resources because it runs the whole test suite
+  for each and every injected mutant. In this paper we explore fine-grained
+  traceability links at method level (named focal methods), to reduce the
+  execution time of mutation testing and to verify the quality of the test
+  cases for each individual method, instead of the usually verified overall
+  test suite quality. Validation of our approach on the open source Apache Ant
+  project shows a speed-up of 573.5x for the mutants located in focal methods
+  with a quality score of 80%.%
+    }
+    \field{booktitle}{Proceedings of the 9th ACM SIGSOFT International Workshop
+  on Automating TEST Case Design, Selection, and Evaluation}
+    \verb{doi}
+    \verb 10.1145/3278186.3278190
+    \endverb
+    \field{isbn}{9781450360531}
+    \field{pages}{23–30}
+    \field{series}{A-TEST 2018}
+    \field{title}{Goal-Oriented Mutation Testing with Focal Methods}
+    \verb{url}
+    \verb https://doi.org/10.1145/3278186.3278190
+    \endverb
+    \list{location}{1}{%
+      {Lake Buena Vista, FL, USA}%
+    }
+    \field{year}{2018}
+    \warn{\item Can't use 'location' + 'address'}
+  \endentry
+
+  \entry{white2020establishing}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=WR}{%
+         family={White},
+         familyi={W\bibinitperiod},
+         given={Robert},
+         giveni={R\bibinitperiod},
+      }}%
+      {{hash=KJ}{%
+         family={Krinke},
+         familyi={K\bibinitperiod},
+         given={Jens},
+         giveni={J\bibinitperiod},
+      }}%
+      {{hash=TR}{%
+         family={Tan},
+         familyi={T\bibinitperiod},
+         given={Raymond},
+         giveni={R\bibinitperiod},
+      }}%
+    }
+    \list{organization}{1}{%
+      {ACM}%
+    }
+    \strng{namehash}{WRKJTR1}
+    \strng{fullhash}{WRKJTR1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{W}
+    \field{sortinithash}{W}
+    \field{booktitle}{42nd International Conference on Software Engineering
+  (ICSE'20)}
+    \field{title}{Establishing Multilevel Test-to-Code Traceability Links}
+    \field{year}{2020}
+  \endentry
+\enddatalist
+\endinput
