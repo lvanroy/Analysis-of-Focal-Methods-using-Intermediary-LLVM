@@ -55,12 +55,15 @@ def analyze_invoke(tokens):
         tokens.pop(0)
 
     # pop return type
-    _, tokens = get_type(tokens)
+    return_type, tokens = get_type(tokens)
+    invoke.set_return_type(return_type)
 
     # get the function name
     if "bitcast" in tokens[0]:
         conversion = analyze_conversion(tokens)
         invoke.set_func(conversion.get_value())
+        if tokens[0][0] == "(":
+            tokens[0] = tokens[0][1:]
     else:
         temp = tokens[0].split("(", 1)
         tokens[0] = temp[1]
@@ -205,6 +208,13 @@ class Invoke(LlvmStatement):
         self.operand_bundle_set = None
         self.cconv = None
         self.ret_attrs = list()
+        self.return_type = None
+
+    def set_return_type(self, return_type):
+        self.return_type = return_type
+
+    def returns_pointer(self):
+        return self.return_type[-1] == "*"
 
     def set_func(self, func):
         self.func = func
@@ -265,6 +275,19 @@ class Invoke(LlvmStatement):
         for argument in self.arguments:
             variable_values.append(argument.get_register())
         return variable_values
+
+    def __str__(self):
+        output = "invoke {}\n".format(self.func)
+        if len(self.arguments) != 0:
+            output += "\t{} parameter(s):\n".format(len(self.arguments))
+            for parameter in self.arguments:
+                output += "\t\t{}\n".format(str(parameter))
+        else:
+            output += "\t0 parameters\n"
+
+        if len(self.fn_attrs) != 0:
+            output += "\tfunction attributes = {}\n".format(self.fn_attrs)
+        return output
 
 
 class OperandBundleSet:

@@ -1,17 +1,9 @@
-c++:
-  cxx_clang_path: /usr/bin/clang++
-c:
-  c_clang_path: /usr/bin/clang
+test_function_signature: "(?:(?!.*~)(?!.*Failure)).*TestBodyEv$"
+assertion_function_signature: '.*?AssertionResult.*?|(?!.*?AssertHelper.*).*?testing8internal.*?|.*?class.testing.*?'
+exclusion_filter: '@_ZNKSt7.*?|@_ZN6stride4util1.*?|@_ZNSt7|@_ZN9__gnu_cxx17|@_ZNSt10.*?'
 
-test_function_signature: "(?:(?!.*~)(?!.*Failure)).*TestBodyEv"
-assertion_function_signature: ".*?AssertionResult.*?"
-
-project_path: /mnt/c/Users/larsv/Documents/GitHub/Goal-Oriented-Mutation-Testing/example-cpp
-
-base_language: c++
-build_target: linked
+project_path: /mnt/c/Users/larsv/Desktop/Goal-Oriented-Mutation-Testing/exampleProjects/stride
 
 max_depth: 1
 
-debug: False
-graph: True
+graph: False

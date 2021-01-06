@@ -164,3 +164,15 @@ class TestLLVMInvoke(unittest.TestCase):
         self.assertEqual(invoke.get_operand_bundle_set().get_operand_bundles()[2].get_operands()[0].get_value(), "%val")
         self.assertEqual(invoke.get_normal(), "%10")
         self.assertEqual(invoke.get_exception(), "%20")
+
+    def test_invoke_bitcast_func_name(self):
+        line = ' %88 = invoke i64 bitcast (i64 (%"class.geopop::Region.4219"*)* @_foo to i64 '
+        line += '(%"class.geopop::Region.4484"*)*)(%"class.geopop::Region.4484"* %87) to label %89 unwind label %124'
+
+        invoke = analyze_invoke(line.split(" "))
+
+        self.assertEqual(invoke.get_function_name(), "@_foo")
+        self.assertEqual(len(invoke.get_arguments()), 1)
+        self.assertEqual(invoke.get_arguments()[0].get_parameter_type(), '%"class.geopop::Region.4484"*')
+        self.assertEqual(invoke.get_arguments()[0].get_register(), "%87")
+        self.assertEqual(len(invoke.get_arguments()[0].get_parameter_attributes()), 0)

@@ -20,20 +20,20 @@ from llvmAnalyser.terminator.invoke import analyze_invoke, Invoke
 from llvmAnalyser.terminator.callbr import analyze_callbr, CallBr
 from llvmAnalyser.terminator.resume import analyze_resume
 
-from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer
+from llvmAnalyser.unary.fneg import analyze_fneg, Fneg
 
-from llvmAnalyser.unary.fneg import analyze_fneg
+from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer, BinOp
 
 from llvmAnalyser.bitwiseBinary.bitwiseBinary import analyze_bitwise_binary
 
-from llvmAnalyser.vector.extractelement import analyze_extractelement
-from llvmAnalyser.vector.insertelement import analyze_insertelement
-from llvmAnalyser.vector.shufflevector import analyze_shufflevector
+from llvmAnalyser.vector.extractelement import analyze_extractelement, ExtractElement
+from llvmAnalyser.vector.insertelement import analyze_insertelement, InsertElement
+from llvmAnalyser.vector.shufflevector import analyze_shufflevector, Shufflevector
 
 from llvmAnalyser.aggregate.insertvalue import analyze_insertvalue
 from llvmAnalyser.aggregate.extractvalue import analyze_extractvalue
 
-from llvmAnalyser.memoryAccess.store import analyze_store
+from llvmAnalyser.memoryAccess.store import analyze_store, Store
 from llvmAnalyser.memoryAccess.load import analyze_load, Load
 from llvmAnalyser.memoryAccess.cmpxchg import analyze_cmpxchg
 from llvmAnalyser.memoryAccess.atomicrmw import analyze_atomicrmw
@@ -61,8 +61,9 @@ class LLVMAnalyser:
 
         # register a test analyzer to determine which function signature should be used to discover which functions
         # are tests
-        self.test_identifier = re.compile(self.config["test_function_signature"])
-        self.assertion_identifier = re.compile(self.config["assertion_function_signature"])
+        self.test_identifier = re.compile(r'{}'.format(self.config["test_function_signature"]))
+        self.assertion_identifier = re.compile(r'{}'.format(self.config["assertion_function_signature"]))
+        self.exclusion_filter = re.compile(r'{}'.format(self.config["exclusion_filter"]))
 
         # store the lines of the llvm file
         self.lines = None
@@ -86,10 +87,17 @@ class LLVMAnalyser:
         # keep track of which function is opened, to further complete the graph related to this function
         self.opened_function = None
 
+        # keep track of the used statements, this will be tracked for each function separately
         self.stores = dict()
         self.loads = dict()
         self.references = dict()
-        self.conversions = dict()
+        self.assignments = dict()
+        self.returns = dict()
+        self.called_functions = dict()
+
+        # keep track of the found mutation types for the functions
+        # it will be tracked per function, and per argument of said function
+        self.found_mutation_types = dict()
 
         # keep track of what register we are assigning to (if any),
         # this is an object of type llvmAnalyser.memory.Register
@@ -162,22 +170,28 @@ class LLVMAnalyser:
             if not self.test_identifier.match(function):
                 continue
 
-            focal_methods[function] = set()
-
             # get the assertions used within the test function
             assertions = self.get_assertions(function)
+
+            # skip all test helper functions
+            if len(assertions) == 0:
+                continue
+
+            focal_methods[function] = set()
+            self.opened_function = function
 
             # look if the assertion has a corresponding focal method by calling the get_focal_method
             # function for each of the parameters of the assertion
             # not every assertion is guaranteed to lead to focal methods as some assertions might directly depend
             # on other assertions and not tested variables
             for assertion in assertions:
-                for inc in assertion.get_incs():
-                    for parameter in assertion.get_arguments():
-                        # print("testing: {}".format(function))
-                        # print("assertion: {}".format(assertion.get_name()))
-                        # print("parameter: {}".format(parameter.get_name()))
-                        methods = self.find_focal_methods(parameter.get_name(), inc)
+                arguments = assertion.get_arguments()
+                for i in range(len(arguments)):
+                    if self.assertion_identifier.match(assertion.get_context().get_arguments()[i].get_parameter_type()):
+                        continue
+
+                    for inc in assertion.get_incs():
+                        methods = self.find_focal_methods(arguments[i].get_name(), inc)
                         focal_methods[function] = focal_methods[function].union(methods)
 
         # iterate over all defined graphs
@@ -212,252 +226,330 @@ class LLVMAnalyser:
         return assertions
 
     # get all focal methods used within upper node in the graph
-    # checked_states:
-    #   the checked states variable is needed to detect loops,
-    #   for each node it will track all tracked variables that have been checked starting from each node
-    def find_focal_methods(self, test_var, test_node, checked_states=None):
+    # to prevent issues regarding recursion depth, this function will go breadth first with an iterative approach
+    def find_focal_methods(self, test_var, test_node):
         focal_methods = set()
+        checked_states = dict()
 
-        if checked_states is None:
-            checked_states = dict()
+        # setup for the first iteration, in the first iteration it will just contain the assertion, alongside the
+        # tracked variable within said assertion
+        current_iteration = list()
+        current_iteration.append((test_var, test_node, False, 0))
+        max_depth = float("inf")
+        mutator_method = None
 
-        # check if the current state is registered within the checked states dictionary
-        if test_node not in checked_states:
-            checked_states[test_node] = set()
+        # setup a tracker that tracks all variables for the next iteration, at the end of an iteration, we
+        # move the tracker to the current iteration, and we clear the tracker so that it can track sets for the next
+        next_iteration = list()
 
-        # detect a loop, if no loop, register that we are currently investigating the tracked variable
-        if test_var in checked_states[test_node]:
-            return focal_methods
-        else:
-            checked_states[test_node].add(test_var)
+        # store the root, this needs to be done as we want to be able to start over, in case it turns out that
+        # a new variable contains our test variable, in that case, every mutation that we might have passed on our
+        # way to the current node, might actually have been the mutation of our test case
+        root = test_node
 
-        # if not register, we are dealing with a constant, which can never lead to a function under test
-        if not re.match(r'^%\d*?$', test_var):
-            return focal_methods
+        # while there are variables left to track
+        while current_iteration:
 
-        node_name = test_node.get_name()
-        context = test_node.get_context()
+            # iterate over all (var, node) pairs stored for the current iteration
+            for test_var, test_node, contains, depth in current_iteration:
+                # if depth > max_depth:
+                #     continue
 
-        # print("{}: {}".format(test_var, node_name))
+                # check if the current state is registered within the checked states dictionary
+                if test_node not in checked_states:
+                    checked_states[test_node] = set()
 
-        if re.match(r'^%\d*? = .*?', node_name):
-            variable, expression = node_name.split(" = ")
-            if isinstance(context, (Call, Invoke, CallBr)):
-                # if we ended up at another assertion function, we need to stop tracing,
-                # as this would mean double work
-                if self.assertion_identifier.match(context.get_function_name()):
-                    return focal_methods
+                # check if we are dealing with a non variable
+                if test_var[0] not in {"%", "@"}:
+                    continue
 
-                # check if the tracked variable was used as an argument in the function call
-                test_arg_found = False
-                args = context.get_arguments()
-                for arg in args:
-                    if arg.get_register() == test_var:
-                        test_arg_found = True
-                        break
-
-                # if either the test var is used, or the test var is assigned by the return value of the function
-                # we consider the function as being a potential mutator, and we go deeper into the function scope
-                if variable == test_var or test_arg_found:
-                    new_methods, mutator = self.find_focal_methods_for_function(test_node, checked_states)
-                    # focal_methods = focal_methods.union(new_methods)
-                    if mutator == "mutator":
-                        # print("added mutator: {}".format(context.get_function_name()))
-                        focal_methods.add(context.get_function_name())
-                        return focal_methods
-                    else:
-                        # print("added methods: {}".format(new_methods))
-                        focal_methods = focal_methods.union(new_methods)
-
-                # if the test var is not used as an argument, and we did not assign to the test var, the function
-                # can have no effect on the test var, and we will not evaluate it
+                # detect a loop, if no loop, register that we are currently investigating the tracked variable
+                if test_var in checked_states[test_node]:
+                    continue
                 else:
-                    for inc in test_node.get_incs():
-                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
-                        focal_methods = focal_methods.union(new_methods)
-                        # print("added methods 2: {}".format(new_methods))
+                    checked_states[test_node].add(test_var)
 
-            # if no function was called, but we did assign to our variable
-            # continue over the other incoming edges, but now with the used variables of the current statement
-            elif test_var == variable:
-                for inc in test_node.get_incs():
+                # capture the relevant data from the node
+                context = test_node.get_context()
+                node_name = test_node.get_name()
+
+                # track some attributes of our current node
+                test_is_arg = False
+                test_is_assignee = False
+                is_func_call = False
+
+                # if we are dealing with an assignment, track which variable we are assigning to
+                assignee = None
+
+                # these will only be set in case we encounter a function call
+                arguments = None
+                function_name = None
+                is_defined = False
+                is_excluded = False
+
+                # verify whether or not a function was used
+                if isinstance(context, (Call, Invoke, CallBr)):
+
+                    # register that our context is indeed a function call
+                    is_func_call = True
+                    arguments = context.get_arguments()
+                    function_name = context.get_function_name()
+
+                    if function_name in self.node_stack:
+                        is_defined = True
+
+                    # if the current context is another assertion related function, we can just carry on
+                    # as this will be evaluated in a separate call
+                    if self.assertion_identifier.match(function_name):
+                        for inc in test_node.get_incs():
+                            next_iteration.append((test_var, inc, contains, depth + 1))
+                        continue
+
+                    # check if our test var is one of the arguments of the function
+                    args = context.get_arguments()
+                    for arg in args:
+                        if arg.get_register() == test_var:
+                            test_is_arg = True
+                            if arg.is_ret_var():
+                                test_is_assignee = True
+                            break
+
+                    # check if our function is an excluded function
+                    if self.exclusion_filter.pattern != "" and self.exclusion_filter.match(function_name):
+                        is_excluded = True
+
+                # verify whether or not an assignment occurred
+                if re.match(r'^%\d*? = .*?$', node_name):
+
+                    # if the test var is the assignee, we need to consider all used variables in the rhs as being
+                    # potential variables used in the mutation of our test var
+                    assignee = node_name.split(" = ")[0]
+                    if assignee == test_var:
+                        test_is_assignee = True
+
+                # if we called a function in which our test var could potentially get mutated,
+                # we mark it as focal method, and we carry on with subsequent nodes
+                if is_func_call and not is_defined and not is_excluded and (test_is_arg or test_is_assignee):
+                    if max_depth == float("inf"):
+                        focal_methods.add(function_name)
+                    if test_is_assignee:
+                        for argument in arguments:
+                            reg = argument.get_register()
+                            if reg != test_var:
+                                next_iteration.append((reg, root, argument.is_pointer(), 0))
+
+                # if we called a function, and its return is assigned to our test var or
+                # the test var is used as one of its arguments, track all used variables as potential extended test var
+                if is_func_call and is_defined and not is_excluded and (test_is_arg or test_is_assignee):
+                    callee_attributes = self.function_handler.get_function_arguments(function_name)
+
+                    if not test_is_assignee:
+                        callee_attributes = [callee_attributes[context.get_argument_registers().index(test_var)]]
+
+                    for i in range(len(callee_attributes)):
+                        callee_attribute = callee_attributes[i]
+
+                        reg = callee_attribute.get_register()
+
+                        temp = self.opened_function
+                        self.opened_function = function_name
+
+                        if self.opened_function in self.found_mutation_types:
+                            if reg in self.found_mutation_types[self.opened_function]:
+                                if False in self.found_mutation_types[self.opened_function][reg]:
+                                    mutator = self.found_mutation_types[self.opened_function][reg][False]
+                                else:
+                                    self.found_mutation_types[self.opened_function][reg][False] = "inspector"
+                                    mutator, _ = self.is_arg_mutated(reg, callee_attribute.is_pointer())
+                                    self.found_mutation_types[self.opened_function][reg][False] = mutator
+                            else:
+                                self.found_mutation_types[self.opened_function][reg] = dict()
+                                self.found_mutation_types[self.opened_function][reg][False] = "inspector"
+                                mutator, _ = self.is_arg_mutated(reg, callee_attribute.is_pointer())
+                                self.found_mutation_types[self.opened_function][reg][False] = mutator
+                        else:
+                            self.found_mutation_types[self.opened_function] = dict()
+                            self.found_mutation_types[self.opened_function][reg] = dict()
+                            self.found_mutation_types[self.opened_function][reg][False] = "inspector"
+                            mutator, _ = self.is_arg_mutated(reg, callee_attribute.is_pointer())
+                            self.found_mutation_types[self.opened_function][reg][False] = mutator
+
+                        self.opened_function = temp
+
+                        if mutator == "mutator" and depth < max_depth:
+                            mutator_method = function_name
+                            max_depth = depth
+                        elif mutator == "uncertain" and max_depth == float("inf"):
+                            focal_methods.add(function_name)
+
+                    for i in range(len(arguments)):
+                        reg = arguments[i].get_register()
+                        if reg != test_var and not self.assertion_identifier.match(arguments[i].get_parameter_type()):
+                            next_iteration.append((reg, root, arguments[i].is_pointer(), 0))
+
+                if is_func_call and is_excluded and (test_is_arg or test_is_assignee):
+                    for i in range(len(arguments)):
+                        reg = arguments[i].get_register()
+                        if reg != test_var and not self.assertion_identifier.match(arguments[i].get_parameter_type()):
+                            next_iteration.append((reg, root, arguments[i].is_pointer(), 0))
+
+                # if we assigned to our test_variable and we are not considering a call, we still have to consider
+                # the used variables in the rhs as possible test targets
+                if test_is_assignee and not is_func_call:
                     for var in context.get_used_variables():
-                        new_methods = self.find_focal_methods(var, inc, checked_states)
-                        focal_methods = focal_methods.union(new_methods)
-                        # print("added methods 3: {}".format(new_methods))
+                        next_iteration.append((var, root, False, 0))
 
-            else:
+                # check if our variable was assigned to a reference, in that case, the object from which it is a
+                # reference now contains our variable under tests, and is therefore also a variable under test
+                if isinstance(context, Store):
+                    if test_var == context.get_value():
+                        if assignee in self.references[self.opened_function]:
+                            next_iteration.append((self.references[self.opened_function][assignee], root, True, 0))
+
+                # check if we loaded a reference of our test var that contains a reference to our original test var
+                if isinstance(context, Load) and contains:
+                    loaded_var = context.get_value()
+                    for lhs, rhs in self.references[self.opened_function].items():
+                        if rhs == test_var and lhs == loaded_var:
+                            next_iteration.append((assignee, root, False, 0))
+
+                # check if we created a reference of our test var
+                if isinstance(context, Getelementptr) and context.get_value() == test_var:
+                    next_iteration.append((assignee, root, contains, 0))
+
+                # check if we casted a variable that contained our original test var to a var of different type
+                if isinstance(context, Conversion) and context.get_value() == test_var:
+                    next_iteration.append((assignee, root, contains, 0))
+
+                # check if we called an intrinsic memory move function upon a variable that contained our
+                # original test var
+                intrinsic_functions = r'@llvm\.(memcpy|memset|memmove).*'
+                if is_func_call and re.match(intrinsic_functions, function_name):
+                    if arguments[1].get_register() == test_var and contains:
+                        next_iteration.append((arguments[0].get_register(), root, True, 0))
+
+                # if there are any subsequent nodes, keep on traversing using our currently considered test var
                 for inc in test_node.get_incs():
-                    new_methods = self.find_focal_methods(test_var, inc, checked_states)
-                    focal_methods = focal_methods.union(new_methods)
-                    # print("added methods 4: {}".format(new_methods))
+                    next_iteration.append((test_var, inc, contains, depth + 1))
 
-        # if we are not dealing with an assignment
-        else:
-            if isinstance(context, (Call, Invoke, CallBr)):
-                # if we ended up at another assertion function, we need to stop tracing,
-                # as this would mean double work
-                if self.assertion_identifier.match(context.get_function_name()):
-                    return focal_methods
+            current_iteration = next_iteration
+            next_iteration = list()
 
-                # check if the tracked variable was used as an argument in the function call
-                test_arg_found = False
-                args = context.get_arguments()
-                for arg in args:
-                    if arg.get_register() == test_var:
-                        test_arg_found = True
-                        break
-
-                # if the test arg did get used, we go deeper into the function scope, as this is a potential mutator
-                if test_arg_found:
-                    new_methods, mutator = self.find_focal_methods_for_function(test_node, checked_states)
-                    # focal_methods = focal_methods.union(new_methods)
-                    if mutator == "mutator":
-                        # print("added mutator: {}".format(context.get_function_name()))
-                        focal_methods.add(context.get_function_name())
-                        return focal_methods
-                    else:
-                        # print("added methods 5: {}".format(new_methods))
-                        focal_methods = focal_methods.union(new_methods)
-
-                # if the test var did not get used, we just carry on with the incoming edges
-                else:
-                    for inc in test_node.get_incs():
-                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
-                        focal_methods = focal_methods.union(new_methods)
-                        # print("added methods 6: {}".format(new_methods))
-
-            # if we are not considering a call, we carry on with the incoming edges
-            else:
-                for inc in test_node.get_incs():
-                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
-                        focal_methods = focal_methods.union(new_methods)
-                        # print("added methods 7: {}".format(new_methods))
-
+        if mutator_method is not None:
+            focal_methods.add(mutator_method)
         return focal_methods
 
-    def find_focal_methods_for_function(self, test_node, checked_states):
-        focal_methods = set()
-
-        mutator = "inspector"
-
-        context = test_node.get_context()
-        arguments = context.get_arguments()
-        function_name = context.get_function_name()
-
-        if function_name in self.node_stack:
-            for i in range(len(arguments)):
-                root_arg = self.function_handler.get_function_arguments(function_name)[i]
-                # noalias implies that the value it directs to can not be considered
-                # if this is the case, it means that this is just instantiated for the function
-                # and it can therefore not be mutated
-                if "noalias" in root_arg.get_parameter_attributes():
-                    continue
-                arg_val = root_arg.get_register()
-                self.indent = 0
-                self.opened_function = function_name
-                # print("entering function: {} using: {}".format(self.opened_function, arg_val))
-                mutator = self.is_arg_mutated(arg_val)
-                # print("function {}\nwas found to be {} for arg {}".format(function_name, mutator, arg_val))
-                if mutator == "mutator":
-                    focal_methods.add(function_name)
-                    return focal_methods, "mutator"
-                elif mutator == "uncertain":
-                    focal_methods.add(function_name)
-                    mutator = "uncertain"
-
-            for i in range(len(arguments)):
-                arg = arguments[i]
-                reg = arg.get_register()
-                for inc in test_node.get_incs():
-                    focal_methods = focal_methods.union(self.find_focal_methods(reg, inc, checked_states))
-
-        return focal_methods, mutator
-
     # see if an argument of a function is mutated within that function scope
-    def is_arg_mutated(self, tracked_variable, is_ref=False):
-        # print("{}:{}".format(tracked_variable, is_ref))
+    def is_arg_mutated(self, var, ref=False):
         mutation_type = "inspector"
+        returns_ref = False
 
-        # this means the function was never analysed, and was therefore not defined our below our max depth
-        if self.opened_function not in self.node_stack:
-            return "uncertain"
+        current_iteration = list()
+        current_iteration.append((var, ref))
 
-        used_functions = self.function_handler.get_used_functions(self.opened_function)
+        next_iteration = list()
 
-        for used_function in used_functions:
-            context = used_function.get_context()
-            if tracked_variable in context.get_argument_registers() and context.get_function_name() in self.node_stack:
-                temp = self.opened_function
-                self.opened_function = context.get_function_name()
-                index = context.get_argument_registers().index(tracked_variable)
-                new_function_args = self.function_handler.get_function(self.opened_function).get_argument_registers()
-                new_var = new_function_args[index]
-                # print("entering function: {} using: {} ({})".format(self.opened_function, new_var, is_ref))
-                mut = self.is_arg_mutated(new_var, is_ref)
-                # print("exited function: {}".format(self.opened_function))
-                self.opened_function = temp
+        while current_iteration:
+            for tracked_variable, is_ref in current_iteration:
+                # this means the function was never analysed, and was therefore not defined our below our max depth
+                if self.opened_function not in self.node_stack:
+                    return "uncertain", False
 
-                if mut == "mutator":
-                    return "mutator"
-                elif mut == "uncertain":
-                    mutation_type = "uncertain"
+                used_functions = self.function_handler.get_used_functions(self.opened_function)
 
-        # this means we assigned to a reference to the tracked variable
-        # the assigned value must also not be a reference, because otherwise we are considering a loop
-        # considering the case below, %3 will be marked as if containing a reference, but then we assigned to a
-        # reference, and so it might be considered a mutation, which is incorrect
-        #   %1 = getelementptr %2
-        #   store %1, %3
-        stores = self.stores[self.opened_function]
-        is_loaded = tracked_variable in self.loads[self.opened_function]
-        is_stored = tracked_variable in stores
-        is_referenced = tracked_variable in self.references[self.opened_function]
-        if is_ref and ((is_stored and is_loaded) or (is_stored and is_referenced)):
-            return "mutator"
+                for used_function in used_functions:
+                    context = used_function.get_context()
+                    func_name = context.get_function_name()
+                    intrinsic_functions = r'@llvm\.(memcopy|memset|memmove).*'
+                    arg_regs = context.get_argument_registers()
+                    if tracked_variable in arg_regs and func_name in self.node_stack:
+                        temp = self.opened_function
+                        self.opened_function = context.get_function_name()
+                        index = context.get_argument_registers().index(tracked_variable)
+                        function = self.function_handler.get_function(self.opened_function)
+                        new_function_args = function.get_argument_registers()
+                        new_var = new_function_args[index]
 
-        else:
-            for lhs, rhs in self.stores[self.opened_function].items():
-                # this means that we assigned our tracked variable to a dif variable
-                if rhs == tracked_variable:
-                    mut = self.is_arg_mutated(lhs, is_ref)
+                        if self.opened_function in self.found_mutation_types:
+                            if new_var in self.found_mutation_types[self.opened_function]:
+                                if is_ref in self.found_mutation_types[self.opened_function][new_var]:
+                                    mut = self.found_mutation_types[self.opened_function][new_var][is_ref]
+                                else:
+                                    self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
+                                    mut, ref = self.is_arg_mutated(new_var, is_ref)
+                                    self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
+                            else:
+                                self.found_mutation_types[self.opened_function][new_var] = dict()
+                                self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
+                                mut, ref = self.is_arg_mutated(new_var, is_ref)
+                                self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
+                        else:
+                            self.found_mutation_types[self.opened_function] = dict()
+                            self.found_mutation_types[self.opened_function][new_var] = dict()
+                            self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
+                            mut, ref = self.is_arg_mutated(new_var, is_ref)
+                            self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
 
-                    if mut == "mutator":
-                        return "mutator"
-                    elif mut == "uncertain":
+                        self.opened_function = temp
+
+                        if mut == "mutator":
+                            return "mutator", False
+                        elif mut == "uncertain":
+                            mutation_type = "uncertain"
+
+                    elif len(arg_regs) > 0 and tracked_variable == arg_regs[0] and \
+                            re.match(intrinsic_functions, func_name):
+                        return "mutator", False
+
+                    elif tracked_variable in arg_regs and func_name not in self.node_stack:
                         mutation_type = "uncertain"
 
-            for lhs, rhs in self.loads[self.opened_function].items():
-                # this means that we loaded our tracked variable into a dif variable
-                if rhs == tracked_variable:
-                    mut = self.is_arg_mutated(lhs, False)
+                # this means we assigned to a reference to the tracked variable
+                # the assigned value must also not be a reference, because otherwise we are considering a loop
+                # considering the case below, %3 will be marked as if containing a reference, but then we assigned to a
+                # reference, and so it might be considered a mutation, which is incorrect
+                #   %1 = getelementptr %2
+                #   store %1, %3
+                stores = self.stores[self.opened_function]
+                is_loaded = tracked_variable in self.loads[self.opened_function]
+                is_stored = tracked_variable in stores
+                is_referenced = tracked_variable in self.references[self.opened_function]
+                if is_ref and ((is_stored and is_loaded) or (is_stored and is_referenced)):
+                    return "mutator", False
 
-                    if mut == "mutator":
-                        return "mutator"
-                    elif mut == "uncertain":
-                        mutation_type = "uncertain"
+                for lhs, rhs in self.stores[self.opened_function].items():
+                    # this means that we assigned our tracked variable to a dif variable
+                    if rhs == tracked_variable:
+                        next_iteration.append((lhs, is_ref))
 
-            for lhs, rhs in self.conversions[self.opened_function].items():
-                # this means that we converted our tracked variable to a dif type
-                if rhs == tracked_variable:
-                    mut = self.is_arg_mutated(lhs, False)
+                for lhs, rhs in self.loads[self.opened_function].items():
+                    # this means that we loaded our tracked variable into a dif variable
+                    if rhs.get_value() == tracked_variable:
+                        next_iteration.append((lhs, rhs.returns_pointer()))
 
-                    if mut == "mutator":
-                        return "mutator"
-                    elif mut == "uncertain":
-                        mutation_type = "uncertain"
+                for lhs, rhs in self.assignments[self.opened_function].items():
+                    # this means that we converted our tracked variable to a dif type
+                    if rhs == tracked_variable:
+                        next_iteration.append((lhs, is_ref))
 
-            for var, ref in self.references[self.opened_function].items():
-                # this means that we assigned a reference of our tracked variable to a dif variable
-                if ref == tracked_variable:
-                    mut = self.is_arg_mutated(var, True)
+                for var, ref in self.references[self.opened_function].items():
+                    # this means that we assigned a reference of our tracked variable to a dif variable
+                    if ref == tracked_variable:
+                        next_iteration.append((var, True))
 
-                    if mut == "mutator":
-                        return "mutator"
-                    elif mut == "uncertain":
-                        mutation_type = "uncertain"
+                for var, context in self.called_functions[self.opened_function].items():
+                    # this means that we assigned the result of a call to a dif variable
+                    if tracked_variable in context.get_used_variables():
+                        next_iteration.append((var, context.returns_pointer()))
 
-        return mutation_type
+                # this means that we returned a reference to a tracked variable
+                if tracked_variable in self.returns[self.opened_function]:
+                    returns_ref = is_ref
+
+            current_iteration = next_iteration
+            next_iteration = list()
+
+        return mutation_type, returns_ref
 
     def analyse(self, i):
         while i < len(self.lines):
@@ -737,13 +829,23 @@ class LLVMAnalyser:
                 top_node.set_name(new_name)
 
                 if isinstance(self.rhs, Load):
-                    self.loads[self.opened_function][self.assignee] = self.rhs.get_value()
+                    self.loads[self.opened_function][self.assignee] = self.rhs
 
                 elif isinstance(self.rhs, Getelementptr):
                     self.references[self.opened_function][self.assignee] = self.rhs.get_value()
 
-                elif isinstance(self.rhs, Conversion):
-                    self.conversions[self.opened_function][self.assignee] = self.rhs.get_value()
+                elif isinstance(self.rhs, (Conversion, Fneg)):
+                    self.assignments[self.opened_function][self.assignee] = self.rhs.get_value()
+
+                elif isinstance(self.rhs, (ExtractElement, InsertElement, Shufflevector)):
+                    self.assignments[self.opened_function][self.assignee] = self.rhs.get_vector_value()
+
+                elif isinstance(self.rhs, BinOp):
+                    self.assignments[self.opened_function][self.assignee] = self.rhs.get_value1()
+                    self.assignments[self.opened_function][self.assignee] = self.rhs.get_value2()
+
+                elif isinstance(self.rhs, (Call, CallBr, Invoke)):
+                    self.called_functions[self.opened_function][self.assignee] = self.rhs
 
                 self.rhs = None
                 self.assignee = None
@@ -757,7 +859,9 @@ class LLVMAnalyser:
         self.stores[self.opened_function] = dict()
         self.loads[self.opened_function] = dict()
         self.references[self.opened_function] = dict()
-        self.conversions[self.opened_function] = dict()
+        self.assignments[self.opened_function] = dict()
+        self.returns[self.opened_function] = list()
+        self.called_functions[self.opened_function] = dict()
         self.graphs[self.opened_function] = Graph()
         self.node_stack[self.opened_function] = list()
         new_node = self.add_node(self.opened_function)
@@ -791,6 +895,7 @@ class LLVMAnalyser:
         self.rhs = analyze_ret(tokens)
         if self.rhs.get_value() is not None:
             label = "ret {}".format(self.rhs.get_value())
+            self.returns[self.opened_function].append(self.rhs.get_value())
         else:
             label = "ret"
         self.register_statement(label)
@@ -1037,7 +1142,7 @@ class LLVMAnalyser:
         self.rhs = analyze_phi(tokens)
         node_name = ""
         for option in self.rhs.get_options():
-            node_name += "{} if prev= {}".format(option.get_value(), option.get_label())
+            node_name += ", {} if prev= {}".format(option.get_value(), option.get_label())
         self.register_statement(node_name)
 
     def register_select(self, tokens):

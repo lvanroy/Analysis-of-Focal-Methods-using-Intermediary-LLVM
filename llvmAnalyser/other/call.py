@@ -44,7 +44,8 @@ def analyze_call(tokens: list):
         call.add_return_attr(attr)
 
     # skip the return type
-    temp_type, tokens = get_type(tokens)
+    return_type, tokens = get_type(tokens)
+    call.set_return_type(return_type)
 
     # skip potential redundant tokens
     while tokens[0].count("(") == 0 and "bitcast" not in tokens[0]:
@@ -182,6 +183,10 @@ class Call(LlvmStatement):
         self.memory = None
         self.calling_convention = None
         self.return_attrs = list()
+        self.return_type = None
+
+    def set_return_type(self, return_type):
+        self.return_type = return_type
 
     def set_function_name(self, function_name):
         self.function_name = function_name
@@ -234,17 +239,20 @@ class Call(LlvmStatement):
     def get_return_attrs(self):
         return self.return_attrs
 
+    def returns_pointer(self):
+        return self.return_type[-1] == "*"
+
     def __str__(self):
         output = "call {}(".format(self.function_name)
-        for argument in self.arguments:
-            output += "{}, ".format(argument)
-        output = output[:-2] + ") "
-
-        if type(self.function_attributes) == list:
-            for func_attr in self.function_attributes:
-                output += "{} ".format(func_attr)
+        if len(self.arguments) != 0:
+            output += "\t{} parameter(s):\n".format(len(self.arguments))
+            for parameter in self.arguments:
+                output += "\t\t{}\n".format(str(parameter))
         else:
-            output += self.function_attributes
+            output += "\t0 parameters\n"
+
+        if len(self.function_attributes) != 0:
+            output += "\tfunction attributes = {}\n".format(self.function_attributes)
         return output
 
 

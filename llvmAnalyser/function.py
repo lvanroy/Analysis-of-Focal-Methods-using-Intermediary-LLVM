@@ -296,7 +296,6 @@ class FunctionHandler:
         invokes = self.get_invokes(function_name)
         return calls + callbrs + invokes
 
-
     def __str__(self):
         result = "The following {} functions were found within the llvm code:\n".format(len(self.functions))
         for key in self.functions:
@@ -587,6 +586,9 @@ class Parameter:
 
     def get_parameter_attributes(self):
         return self.parameter_attributes
+
+    def is_pointer(self):
+        return self.parameter_type[-1] == "*"
 
     def __str__(self):
         result = self.parameter_type

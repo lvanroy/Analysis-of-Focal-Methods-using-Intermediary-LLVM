@@ -145,3 +145,15 @@ class TestLLVMCall(unittest.TestCase):
         self.assertEqual(call.get_operand_bundle_set().get_operand_bundles()[2].get_operands()[0].get_type(), "i64*")
         self.assertEqual(call.get_operand_bundle_set().get_operand_bundles()[2].get_operands()[0].get_value(), "%val")
 
+    def test_call_bitcast_func_name(self):
+        line = '%25 = call i64 bitcast (i64 (%"class.geopop::Region.4219"*)* @_foo to i64 '
+        line += '(%"class.geopop::Region.4484"*)*)(%"class.geopop::Region.4484"* %24)'
+
+        call = analyze_call(line.split(" "))
+
+        self.assertEqual(call.get_function_name(), "@_foo")
+        self.assertEqual(len(call.get_arguments()), 1)
+        self.assertEqual(call.get_arguments()[0].get_parameter_type(), '%"class.geopop::Region.4484"*')
+        self.assertEqual(call.get_arguments()[0].get_register(), "%24")
+        self.assertEqual(len(call.get_arguments()[0].get_parameter_attributes()), 0)
+
