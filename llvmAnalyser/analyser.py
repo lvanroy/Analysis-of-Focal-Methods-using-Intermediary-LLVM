@@ -1,5 +1,6 @@
 from graph.graph import Graph
 from yaml import load
+from copy import copy
 import re
 
 try:
@@ -9,17 +10,19 @@ except ImportError:
 
 from llvmAnalyser.function import FunctionHandler
 from llvmAnalyser.attributes import AttributeGroupHandler
-from llvmAnalyser.testingFramework.gtest import Gtest
+from llvmAnalyser.alias import analyze_alias
 
+from llvmAnalyser.terminator.ret import analyze_ret
 from llvmAnalyser.terminator.br import analyze_br
 from llvmAnalyser.terminator.switch import analyze_switch
 from llvmAnalyser.terminator.indirectbr import analyze_inidrectbr
-from llvmAnalyser.terminator.invoke import analyze_invoke
-from llvmAnalyser.terminator.callbr import analyze_callbr
+from llvmAnalyser.terminator.invoke import analyze_invoke, Invoke
+from llvmAnalyser.terminator.callbr import analyze_callbr, CallBr
 from llvmAnalyser.terminator.resume import analyze_resume
 
 from llvmAnalyser.binary.binaryOp import BinaryOpAnalyzer
-from llvmAnalyser.binary.fpBinaryOp import FpBinaryOpAnalyzer
+
+from llvmAnalyser.unary.fneg import analyze_fneg
 
 from llvmAnalyser.bitwiseBinary.bitwiseBinary import analyze_bitwise_binary
 
@@ -31,20 +34,18 @@ from llvmAnalyser.aggregate.insertvalue import analyze_insertvalue
 from llvmAnalyser.aggregate.extractvalue import analyze_extractvalue
 
 from llvmAnalyser.memoryAccess.store import analyze_store
-from llvmAnalyser.memoryAccess.load import analyze_load
+from llvmAnalyser.memoryAccess.load import analyze_load, Load
 from llvmAnalyser.memoryAccess.cmpxchg import analyze_cmpxchg
 from llvmAnalyser.memoryAccess.atomicrmw import analyze_atomicrmw
-from llvmAnalyser.memoryAccess.getelementptr import analyze_getelementptr
+from llvmAnalyser.memoryAccess.getelementptr import analyze_getelementptr, Getelementptr
 
-from llvmAnalyser.conversion.conversion import analyze_conversion
+from llvmAnalyser.conversion.conversion import analyze_conversion, Conversion
 
 from llvmAnalyser.other.cmp import analyze_cmp
 from llvmAnalyser.other.phi import analyze_phi
 from llvmAnalyser.other.select import analyze_select
 from llvmAnalyser.other.freeze import analyze_freeze
-from llvmAnalyser.other.call import CallAnalyzer, Call
-
-from llvmAnalyser.analyzeTestMethod import get_focal_method
+from llvmAnalyser.other.call import analyze_call, Call
 
 block_start_format = re.compile(r'[0-9]*:')
 
@@ -60,18 +61,17 @@ class LLVMAnalyser:
 
         # register a test analyzer to determine which function signature should be used to discover which functions
         # are tests
-        self.test_identifier = None
-        if self.config["test_framework"] == "gtest":
-            self.test_identifier = Gtest
+        self.test_identifier = re.compile(self.config["test_function_signature"])
+        self.assertion_identifier = re.compile(self.config["assertion_function_signature"])
+
+        # store the lines of the llvm file
+        self.lines = None
 
         # make handlers for the specific llvm statements
         self.function_handler = FunctionHandler()
         self.attribute_group_handler = AttributeGroupHandler()
 
         self.binary_op_analyzer = BinaryOpAnalyzer()
-        self.fp_binary_op_analyzer = FpBinaryOpAnalyzer()
-
-        self.call_analyzer = CallAnalyzer()
 
         # keep track of the graph objects
         self.graphs = dict()
@@ -85,7 +85,11 @@ class LLVMAnalyser:
 
         # keep track of which function is opened, to further complete the graph related to this function
         self.opened_function = None
-        self.opened_function_memory = None
+
+        self.stores = dict()
+        self.loads = dict()
+        self.references = dict()
+        self.conversions = dict()
 
         # keep track of what register we are assigning to (if any),
         # this is an object of type llvmAnalyser.memory.Register
@@ -95,16 +99,372 @@ class LLVMAnalyser:
         # this can be of any statement object part of the llvm analyzers
         self.rhs = None
 
-    def analyse(self, file):
+        # track the evaluated functions, as well as the functions in queue to evaluate
+        self.evaluated_functions = list()
+        self.functions_to_evaluate = list()
+
+        self.indent = 0
+
+        self.references = dict()
+
+    def get_relevant_functions(self, file):
         f = open(file, "r")
-        lines = f.readlines()
+        self.lines = [line.rstrip() for line in f.readlines()]
         f.close()
 
-        while len(lines) != 0:
-            tokens = list(filter(None, lines[0].replace("\t", "").replace("\n", "").split(";")[0].split(" ")))
+        indexes = [i for i in range(len(self.lines)) if " alias " in self.lines[i]]
+
+        # analyze all aliases specified within the llvm file
+        aliases = dict()
+        for index in reversed(indexes):
+            line = self.lines.pop(index)
+            tokens = list(filter(None, line.replace("\t", "").replace("\n", "").split(";")[0].split(" ")))
+            alias = analyze_alias(tokens)
+            aliases[alias.get_name()] = alias.get_aliasee()
+
+        # get the line indices for all definitions
+        indexes = [i for i in range(len(self.lines)) if "define" == self.lines[i][:6]]
+
+        # iterate over the definitions and analyze all test functions
+        function_names = dict()
+        for index in reversed(indexes):
+            m = re.search(r'(@.*?\()+?', self.lines[index])
+            function_name = m.group()[:-1]
+            function_names[function_name] = index
+
+            if self.test_identifier.match(function_name):
+                self.evaluated_functions.append(function_name)
+                self.analyse(index)
+
+        # track the depth, this depth implies the number of functions we traversed, starting from the test function
+        # this is limited, as we do not want to evaluate every single function to maximize efficiency
+        # per depth, analyze all function encountered within the previous depth
+        depth = 1
+        while depth <= self.config["max_depth"]:
+            temp_copy = copy(self.functions_to_evaluate)
+            self.evaluated_functions += self.functions_to_evaluate
+            self.functions_to_evaluate.clear()
+            for function_name in temp_copy:
+                if not self.assertion_identifier.match(function_name):
+                    if function_name in function_names:
+                        self.analyse(function_names[function_name])
+                    elif function_name in aliases:
+                        self.analyse(function_names[aliases[function_name]])
+
+            depth += 1
+
+    def get_focal_methods(self):
+        # keep track of the functions under test for each test function
+        focal_methods = dict()
+
+        for function in self.evaluated_functions:
+            # skip all non test functions
+            if not self.test_identifier.match(function):
+                continue
+
+            focal_methods[function] = set()
+
+            # get the assertions used within the test function
+            assertions = self.get_assertions(function)
+
+            # look if the assertion has a corresponding focal method by calling the get_focal_method
+            # function for each of the parameters of the assertion
+            # not every assertion is guaranteed to lead to focal methods as some assertions might directly depend
+            # on other assertions and not tested variables
+            for assertion in assertions:
+                for inc in assertion.get_incs():
+                    for parameter in assertion.get_arguments():
+                        # print("testing: {}".format(function))
+                        # print("assertion: {}".format(assertion.get_name()))
+                        # print("parameter: {}".format(parameter.get_name()))
+                        methods = self.find_focal_methods(parameter.get_name(), inc)
+                        focal_methods[function] = focal_methods[function].union(methods)
+
+        # iterate over all defined graphs
+        for graph in self.graphs:
+            # we only want to draw test functions
+            if self.graphs[graph].is_test_func():
+                # draw the relevant graphs if desired
+                if self.config["graph"]:
+                    self.graphs[graph].export_graph(graph)
+
+        # draw the top graph if desired
+        if self.config["graph"]:
+            self.top_graph.export_graph("top_level_graph")
+
+        return focal_methods
+
+    def get_assertions(self, function):
+        assertions = list()
+
+        for call in self.function_handler.get_calls(function):
+            if self.assertion_identifier.match(call.get_context().get_function_name()):
+                assertions.append(call)
+
+        for callbr in self.function_handler.get_callbrs(function):
+            if self.assertion_identifier.match(callbr.get_context().get_function_name()):
+                assertions.append(callbr)
+
+        for invoke in self.function_handler.get_invokes(function):
+            if self.assertion_identifier.match(invoke.get_context().get_function_name()):
+                assertions.append(invoke)
+
+        return assertions
+
+    # get all focal methods used within upper node in the graph
+    # checked_states:
+    #   the checked states variable is needed to detect loops,
+    #   for each node it will track all tracked variables that have been checked starting from each node
+    def find_focal_methods(self, test_var, test_node, checked_states=None):
+        focal_methods = set()
+
+        if checked_states is None:
+            checked_states = dict()
+
+        # check if the current state is registered within the checked states dictionary
+        if test_node not in checked_states:
+            checked_states[test_node] = set()
+
+        # detect a loop, if no loop, register that we are currently investigating the tracked variable
+        if test_var in checked_states[test_node]:
+            return focal_methods
+        else:
+            checked_states[test_node].add(test_var)
+
+        # if not register, we are dealing with a constant, which can never lead to a function under test
+        if not re.match(r'^%\d*?$', test_var):
+            return focal_methods
+
+        node_name = test_node.get_name()
+        context = test_node.get_context()
+
+        # print("{}: {}".format(test_var, node_name))
+
+        if re.match(r'^%\d*? = .*?', node_name):
+            variable, expression = node_name.split(" = ")
+            if isinstance(context, (Call, Invoke, CallBr)):
+                # if we ended up at another assertion function, we need to stop tracing,
+                # as this would mean double work
+                if self.assertion_identifier.match(context.get_function_name()):
+                    return focal_methods
+
+                # check if the tracked variable was used as an argument in the function call
+                test_arg_found = False
+                args = context.get_arguments()
+                for arg in args:
+                    if arg.get_register() == test_var:
+                        test_arg_found = True
+                        break
+
+                # if either the test var is used, or the test var is assigned by the return value of the function
+                # we consider the function as being a potential mutator, and we go deeper into the function scope
+                if variable == test_var or test_arg_found:
+                    new_methods, mutator = self.find_focal_methods_for_function(test_node, checked_states)
+                    # focal_methods = focal_methods.union(new_methods)
+                    if mutator == "mutator":
+                        # print("added mutator: {}".format(context.get_function_name()))
+                        focal_methods.add(context.get_function_name())
+                        return focal_methods
+                    else:
+                        # print("added methods: {}".format(new_methods))
+                        focal_methods = focal_methods.union(new_methods)
+
+                # if the test var is not used as an argument, and we did not assign to the test var, the function
+                # can have no effect on the test var, and we will not evaluate it
+                else:
+                    for inc in test_node.get_incs():
+                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
+                        focal_methods = focal_methods.union(new_methods)
+                        # print("added methods 2: {}".format(new_methods))
+
+            # if no function was called, but we did assign to our variable
+            # continue over the other incoming edges, but now with the used variables of the current statement
+            elif test_var == variable:
+                for inc in test_node.get_incs():
+                    for var in context.get_used_variables():
+                        new_methods = self.find_focal_methods(var, inc, checked_states)
+                        focal_methods = focal_methods.union(new_methods)
+                        # print("added methods 3: {}".format(new_methods))
+
+            else:
+                for inc in test_node.get_incs():
+                    new_methods = self.find_focal_methods(test_var, inc, checked_states)
+                    focal_methods = focal_methods.union(new_methods)
+                    # print("added methods 4: {}".format(new_methods))
+
+        # if we are not dealing with an assignment
+        else:
+            if isinstance(context, (Call, Invoke, CallBr)):
+                # if we ended up at another assertion function, we need to stop tracing,
+                # as this would mean double work
+                if self.assertion_identifier.match(context.get_function_name()):
+                    return focal_methods
+
+                # check if the tracked variable was used as an argument in the function call
+                test_arg_found = False
+                args = context.get_arguments()
+                for arg in args:
+                    if arg.get_register() == test_var:
+                        test_arg_found = True
+                        break
+
+                # if the test arg did get used, we go deeper into the function scope, as this is a potential mutator
+                if test_arg_found:
+                    new_methods, mutator = self.find_focal_methods_for_function(test_node, checked_states)
+                    # focal_methods = focal_methods.union(new_methods)
+                    if mutator == "mutator":
+                        # print("added mutator: {}".format(context.get_function_name()))
+                        focal_methods.add(context.get_function_name())
+                        return focal_methods
+                    else:
+                        # print("added methods 5: {}".format(new_methods))
+                        focal_methods = focal_methods.union(new_methods)
+
+                # if the test var did not get used, we just carry on with the incoming edges
+                else:
+                    for inc in test_node.get_incs():
+                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
+                        focal_methods = focal_methods.union(new_methods)
+                        # print("added methods 6: {}".format(new_methods))
+
+            # if we are not considering a call, we carry on with the incoming edges
+            else:
+                for inc in test_node.get_incs():
+                        new_methods = self.find_focal_methods(test_var, inc, checked_states)
+                        focal_methods = focal_methods.union(new_methods)
+                        # print("added methods 7: {}".format(new_methods))
+
+        return focal_methods
+
+    def find_focal_methods_for_function(self, test_node, checked_states):
+        focal_methods = set()
+
+        mutator = "inspector"
+
+        context = test_node.get_context()
+        arguments = context.get_arguments()
+        function_name = context.get_function_name()
+
+        if function_name in self.node_stack:
+            for i in range(len(arguments)):
+                root_arg = self.function_handler.get_function_arguments(function_name)[i]
+                # noalias implies that the value it directs to can not be considered
+                # if this is the case, it means that this is just instantiated for the function
+                # and it can therefore not be mutated
+                if "noalias" in root_arg.get_parameter_attributes():
+                    continue
+                arg_val = root_arg.get_register()
+                self.indent = 0
+                self.opened_function = function_name
+                # print("entering function: {} using: {}".format(self.opened_function, arg_val))
+                mutator = self.is_arg_mutated(arg_val)
+                # print("function {}\nwas found to be {} for arg {}".format(function_name, mutator, arg_val))
+                if mutator == "mutator":
+                    focal_methods.add(function_name)
+                    return focal_methods, "mutator"
+                elif mutator == "uncertain":
+                    focal_methods.add(function_name)
+                    mutator = "uncertain"
+
+            for i in range(len(arguments)):
+                arg = arguments[i]
+                reg = arg.get_register()
+                for inc in test_node.get_incs():
+                    focal_methods = focal_methods.union(self.find_focal_methods(reg, inc, checked_states))
+
+        return focal_methods, mutator
+
+    # see if an argument of a function is mutated within that function scope
+    def is_arg_mutated(self, tracked_variable, is_ref=False):
+        # print("{}:{}".format(tracked_variable, is_ref))
+        mutation_type = "inspector"
+
+        # this means the function was never analysed, and was therefore not defined our below our max depth
+        if self.opened_function not in self.node_stack:
+            return "uncertain"
+
+        used_functions = self.function_handler.get_used_functions(self.opened_function)
+
+        for used_function in used_functions:
+            context = used_function.get_context()
+            if tracked_variable in context.get_argument_registers() and context.get_function_name() in self.node_stack:
+                temp = self.opened_function
+                self.opened_function = context.get_function_name()
+                index = context.get_argument_registers().index(tracked_variable)
+                new_function_args = self.function_handler.get_function(self.opened_function).get_argument_registers()
+                new_var = new_function_args[index]
+                # print("entering function: {} using: {} ({})".format(self.opened_function, new_var, is_ref))
+                mut = self.is_arg_mutated(new_var, is_ref)
+                # print("exited function: {}".format(self.opened_function))
+                self.opened_function = temp
+
+                if mut == "mutator":
+                    return "mutator"
+                elif mut == "uncertain":
+                    mutation_type = "uncertain"
+
+        # this means we assigned to a reference to the tracked variable
+        # the assigned value must also not be a reference, because otherwise we are considering a loop
+        # considering the case below, %3 will be marked as if containing a reference, but then we assigned to a
+        # reference, and so it might be considered a mutation, which is incorrect
+        #   %1 = getelementptr %2
+        #   store %1, %3
+        stores = self.stores[self.opened_function]
+        is_loaded = tracked_variable in self.loads[self.opened_function]
+        is_stored = tracked_variable in stores
+        is_referenced = tracked_variable in self.references[self.opened_function]
+        if is_ref and ((is_stored and is_loaded) or (is_stored and is_referenced)):
+            return "mutator"
+
+        else:
+            for lhs, rhs in self.stores[self.opened_function].items():
+                # this means that we assigned our tracked variable to a dif variable
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, is_ref)
+
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
+
+            for lhs, rhs in self.loads[self.opened_function].items():
+                # this means that we loaded our tracked variable into a dif variable
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, False)
+
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
+
+            for lhs, rhs in self.conversions[self.opened_function].items():
+                # this means that we converted our tracked variable to a dif type
+                if rhs == tracked_variable:
+                    mut = self.is_arg_mutated(lhs, False)
+
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
+
+            for var, ref in self.references[self.opened_function].items():
+                # this means that we assigned a reference of our tracked variable to a dif variable
+                if ref == tracked_variable:
+                    mut = self.is_arg_mutated(var, True)
+
+                    if mut == "mutator":
+                        return "mutator"
+                    elif mut == "uncertain":
+                        mutation_type = "uncertain"
+
+        return mutation_type
+
+    def analyse(self, i):
+        while i < len(self.lines):
+            tokens = list(filter(None, self.lines[i].replace("\t", "").replace("\n", "").split(";")[0].split(" ")))
 
             if len(tokens) == 0:
-                lines.pop(0)
+                i += 1
                 continue
 
             # register assignment
@@ -121,7 +481,7 @@ class LLVMAnalyser:
 
             # skip global scope
             elif self.opened_function is None:
-                lines.pop(0)
+                i += 1
                 continue
 
             # Terminator instructions
@@ -134,7 +494,7 @@ class LLVMAnalyser:
 
             # register ret statement
             elif tokens[0] == "ret":
-                self.register_return()
+                self.register_return(tokens)
 
             # register br statement
             elif "br" in tokens:
@@ -142,9 +502,9 @@ class LLVMAnalyser:
 
             # register switch statement
             elif "switch" in tokens:
-                for _ in range(3):
-                    tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
-                    lines.pop(1)
+                while "]" not in tokens:
+                    tokens += list(filter(None, self.lines[i + 1].replace("\t", "").replace("\n", "").split(" ")))
+                    i += 1
                 self.register_switch(tokens)
 
             # register indirectbr statement
@@ -153,8 +513,8 @@ class LLVMAnalyser:
 
             # register invoke statement
             elif "invoke" in tokens:
-                tokens += list(filter(None, lines[1].replace("\t", "").replace("\n", "").split(" ")))
-                lines.pop(1)
+                tokens += list(filter(None, self.lines[i + 1].replace("\t", "").replace("\n", "").split(" ")))
+                i += 1
                 self.register_invoke(tokens)
 
             # register callbr statement
@@ -167,49 +527,54 @@ class LLVMAnalyser:
 
             # skip catchswitch
             elif "catchswitch" in tokens:
-                lines.pop(0)
+                i += 1
                 continue
 
             # skip catchret
             elif "catchret" in tokens:
-                lines.pop(0)
+                i += 1
                 continue
 
             # skip cleanupret
             elif "cleanupret" in tokens:
-                lines.pop(0)
+                i += 1
                 continue
 
             # register unreachable statement
             elif "unreachable" in tokens:
                 self.register_unreachable()
 
+            # Unary operations
+            # ----------------
+            # Unary Operations
+            # Unary operators require a single operand, execute an operation on it, and produce a single value.
+            # The operand might represent multiple data, as is the case with the vector data type.
+            # The result value has the same type as its operand.
+
+            # register unary operation
+            elif len(tokens) > 2 and tokens[2] == "fneg":
+                self.register_fneg(tokens)
+
             # Binary operations
             # -----------------
             # Binary operations are used for most computations in a program. They require two operands of the same type
             # and it results in a single value on which the operation is applied.
-            # The binary operators are split into two main categories,
-            #   operations on integer or vector of integer values, simply referred to as binary operations
-            #   operations on floating-point or vector of floating-point values, referred to as floating-point binary
-            #       operations
 
             # register binary integer operation
-            elif len(tokens) > 2 and tokens[2] in ["add", "sub", "mul", "sdiv", "srem", "udiv", "urem"]:
+            elif len(tokens) > 2 and tokens[2] in ["add", "sub", "mul", "sdiv", "srem", "udiv",
+                                                   "urem", "fadd", "fsub", "fmul", "fdiv"]:
                 self.register_binary_op(tokens)
-
-            # register binary floating point operations
-            elif len(tokens) > 2 and tokens[2] in ["fadd", "fsub", "fmul", "fdiv"]:
-                self.register_fp_binary_op(tokens)
 
             # Bitwise binary operations
             # -------------------------
             # Bitwise binary operations are used to do various forms of bit-twiddling in a program. They require two
             # operands of the same type, execute an operation on them, and produce a single value. The following
             # bitwise binary operations exist within llvm:
-            #   'sh1', 'lshr', 'ashr', 'and', 'or', 'xor'
+            #   'shl', 'lshr', 'ashr', 'and', 'or', 'xor'
 
             # register bitwise binary instruction
-            elif len(tokens) > 2 and tokens[2] in ["sh1", "lshr", "ashr", "and", "or", "xor"]:
+            elif len(tokens) > 2 and tokens[2] in ["shl", "lshr", "ashr", "and", "or", "xor"] and \
+                    tokens[1] == "=":
                 self.register_bitwise_binary(tokens)
 
             # Vector operations
@@ -220,15 +585,15 @@ class LLVMAnalyser:
             #   'extractelement', 'insertelement', 'shufflevector'
 
             # register extractelement statement
-            elif "extractelement" in tokens:
+            elif len(tokens) > 2 and tokens[2] == "extractelement":
                 self.register_extractelement(tokens)
 
             # register insertelement statement
-            elif "insertelement" in tokens:
+            elif len(tokens) > 2 and tokens[2] == "insertelement":
                 self.register_insertelement(tokens)
 
             # register shufflevector statement
-            elif "shufflevector" in tokens:
+            elif len(tokens) > 2 and tokens[2] == "shufflevector":
                 self.register_shufflevector(tokens)
 
             # Aggregate Operations
@@ -238,11 +603,11 @@ class LLVMAnalyser:
             #   'extractvalue', 'insertvalue'
 
             # register extractvalue statement
-            elif "extractvalue" in tokens:
+            elif len(tokens) > 2 and tokens[2] == "extractvalue":
                 self.register_extractvalue(tokens)
 
             # register insertvalue statement
-            elif "insertvalue" in tokens:
+            elif len(tokens) > 2 and tokens[2] == "insertvalue":
                 self.register_insertvalue(tokens)
 
             # Memory Access and Addressing operations
@@ -253,7 +618,7 @@ class LLVMAnalyser:
             # register alloca statement
             elif "alloca" in tokens:
                 self.assignee = None
-                lines.pop(0)
+                i += 1
                 continue
 
             # register load statement
@@ -266,7 +631,7 @@ class LLVMAnalyser:
 
             # register fence statement
             elif "fence" in tokens:
-                lines.pop(0)
+                i += 1
                 continue
 
             # register cmpxchg statement
@@ -278,7 +643,7 @@ class LLVMAnalyser:
                 self.register_atomicrmw(tokens)
 
             # register getelementptr statement
-            elif len(tokens) > 2 and tokens[2] == "getelementptr":
+            elif len(tokens) > 2 and tokens[2] == "getelementptr" and tokens[1] == "=":
                 self.register_getelementptr(tokens)
 
             # Conversion operations
@@ -290,10 +655,11 @@ class LLVMAnalyser:
             #   'ptrtoint .. to', 'inttoptr .. to', 'bitcast .. to', 'addrspacecast .. to'
 
             # register conversion statement
-            elif len(tokens) > 2 and tokens[2] in ["trunc", "zext",     "sext",     "fptrunc",
-                                                   "fpext", "fptoui",   "fptosi",   "uitofp",
+            elif len(tokens) > 2 and tokens[2] in ["trunc", "zext", "sext", "fptrunc",
+                                                   "fpext", "fptoui", "fptosi", "uitofp",
                                                    "sitofp", "ptrtoint", "inttoptr", "bitcast",
-                                                   "addrspacecast"]:
+                                                   "addrspacecast"] \
+                    and tokens[1] == "=":
                 self.register_conversion(tokens)
 
             # other operations
@@ -303,11 +669,11 @@ class LLVMAnalyser:
             #   'icmp', 'fcmp', 'phi', 'select', 'freeze', 'call', 'va_arg', 'landingpad', 'catchpad', 'cleanuppad'
 
             # register icmp statement
-            elif len(tokens) > 2 and tokens[2] in ["icmp", "fcmp"]:
+            elif len(tokens) > 2 and tokens[1] == "=" and tokens[2] in ["icmp", "fcmp"]:
                 self.register_cmp(tokens)
 
             # register phi statement
-            elif "phi" in tokens:
+            elif len(tokens) > 2 and tokens[1] == "=" and tokens[2] == "phi":
                 self.register_phi(tokens)
 
             # register select statement
@@ -325,29 +691,29 @@ class LLVMAnalyser:
             # register landingpad statement
             elif "landingpad" in tokens:
                 while True:
-                    if "catch" in lines[1]:
-                        lines.pop(1)
-                    elif "cleanup" in lines[1]:
-                        lines.pop(1)
-                    elif "filter" in lines[1]:
-                        lines.pop(1)
+                    if "catch" in self.lines[i + 1]:
+                        i += 1
+                    elif "cleanup" in self.lines[i + 1]:
+                        i += 1
+                    elif "filter" in self.lines[i + 1]:
+                        i += 1
                     else:
                         break
 
                 self.assignee = None
-                lines.pop(0)
+                i += 1
                 continue
 
             # register catchpad statement
             elif "catchpad" in tokens:
                 self.assignee = None
-                lines.pop(0)
+                i += 1
                 continue
 
             # register clenuppad statement
             elif "cleanuppad" in tokens:
                 self.assignee = None
-                lines.pop(0)
+                i += 1
                 continue
 
             # register new code block
@@ -358,89 +724,52 @@ class LLVMAnalyser:
             # register end of function definition
             elif tokens[0] == "}":
                 self.register_function_end()
+                return
 
             elif self.opened_function is not None:
                 print("Error: unregistered instruction!")
                 print(tokens)
-                print(lines[0])
+                print(self.lines[i])
 
             if self.assignee is not None:
                 new_name = "{} = {}".format(self.assignee, self.node_stack[self.opened_function][-1].get_name())
                 top_node = self.node_stack[self.opened_function][-1]
                 top_node.set_name(new_name)
-                self.opened_function_memory.assign_value_to_reg(self.assignee, self.rhs)
-                self.opened_function_memory.add_node_to_reg(self.assignee, top_node)
+
+                if isinstance(self.rhs, Load):
+                    self.loads[self.opened_function][self.assignee] = self.rhs.get_value()
+
+                elif isinstance(self.rhs, Getelementptr):
+                    self.references[self.opened_function][self.assignee] = self.rhs.get_value()
+
+                elif isinstance(self.rhs, Conversion):
+                    self.conversions[self.opened_function][self.assignee] = self.rhs.get_value()
 
                 self.rhs = None
                 self.assignee = None
 
-            lines.pop(0)
+            i += 1
 
-        # get the list of functions used for assertions
-        assert_helpers = self.top_graph.check_for_assert_helpers()
-
-        # keep track of the functions under test for each test function
-        focal_methods = dict()
-
-        # iterate over all defined graphs
-        for graph in self.graphs:
-            # we only want to draw test functions
-            if self.graphs[graph].is_test_func():
-                # make an entry in the focal methods dict
-                focal_methods[graph] = set()
-
-                # get the memory block of said function
-                function_memory = self.function_handler.get_function_memory(graph)
-
-                # get all variables compared in assertions
-                assertions = self.graphs[graph].check_for_used_assertion(assert_helpers)
-
-                # call the get_focal_method function for each parameter of the assertions
-                for assertion in assertions:
-                    for parameter in assertion.get_arguments():
-                        get_focal_method(assertion, parameter)
-
-                # trace where said variables are used, in case they can be traced back to a call
-                # return said register, if not, return None
-                # we want to track all initial calls, as these are considered to be functions under test
-                # initial_vars = list()
-                # for test_var in test_vars:
-                #     initial = self.check_for_initial_call(str(test_var).split("\"")[1], function_memory)
-                #     if initial is not None:
-                #         initial_vars.append(initial)
-
-                # set all initial nodes as test variables in the graph
-                # for initial_var in initial_vars:
-                #     node = function_memory.get_node(initial_var)
-                #     node.set_test_var()
-                #     self.top_graph_nodes[node.get_context().get_function_name()].set_test_var()
-                #     focal_methods[graph].add(node.get_context().get_function_name())
-
-                # draw the relevant graphs if desired
-                if self.config["graph"]:
-                    self.graphs[graph].export_graph(graph)
-
-        # draw the top graph if desired
-        if self.config["graph"]:
-            self.top_graph.export_graph("top_level_graph")
-
-        return focal_methods
+        return
 
     def analyze_define(self, tokens):
         self.opened_function = self.function_handler.identify_function(tokens)
-        self.opened_function_memory = self.function_handler.get_function_memory(self.opened_function)
+        self.stores[self.opened_function] = dict()
+        self.loads[self.opened_function] = dict()
+        self.references[self.opened_function] = dict()
+        self.conversions[self.opened_function] = dict()
         self.graphs[self.opened_function] = Graph()
         self.node_stack[self.opened_function] = list()
         new_node = self.add_node(self.opened_function)
         if self.opened_function not in self.top_graph_nodes:
             top_graph_node = self.top_graph.add_node(self.opened_function)
             self.top_graph_nodes[self.opened_function] = top_graph_node
-        if self.test_identifier.identify_test_function(self.opened_function):
+        if self.test_identifier.match(self.opened_function):
             self.top_graph_nodes[self.opened_function].set_test()
             self.graphs[self.opened_function].set_test_func()
             new_node.set_test()
             self.graphs[self.opened_function].add_assertion(new_node)
-        if self.test_identifier.identify_assertion_function(self.opened_function):
+        if self.assertion_identifier.match(self.opened_function):
             self.top_graph_nodes[self.opened_function].set_assertion()
             new_node.set_assertion()
 
@@ -458,11 +787,13 @@ class LLVMAnalyser:
     # register_resume()
     # register_unreachable()
 
-    def register_return(self):
-        prev_node = self.node_stack[self.opened_function][-1]
-        new_node = self.add_node("ret")
-        new_node.set_final()
-        self.graphs[self.opened_function].add_edge(prev_node, new_node)
+    def register_return(self, tokens):
+        self.rhs = analyze_ret(tokens)
+        if self.rhs.get_value() is not None:
+            label = "ret {}".format(self.rhs.get_value())
+        else:
+            label = "ret"
+        self.register_statement(label)
 
     def register_br(self, tokens):
         self.rhs = analyze_br(tokens)
@@ -502,7 +833,16 @@ class LLVMAnalyser:
 
     def register_invoke(self, tokens):
         self.rhs = analyze_invoke(tokens)
-        new_node = self.register_statement(self.rhs.get_func())
+        func_name = self.rhs.get_function_name()
+        new_node = self.register_statement("invoke {}".format(func_name))
+        self.function_handler.add_invoke(self.opened_function, new_node)
+
+        if func_name not in self.evaluated_functions and func_name not in self.functions_to_evaluate:
+            self.functions_to_evaluate.append(func_name)
+
+        for argument in self.rhs.get_arguments():
+            argument_node = self.graphs[self.opened_function].add_node(argument.get_register())
+            new_node.add_argument(argument_node)
 
         block_name = "{}:{}".format(self.opened_function, self.rhs.get_normal())
         normal_node = self.get_first_node_of_block(block_name)
@@ -512,13 +852,19 @@ class LLVMAnalyser:
         exception_node = self.get_first_node_of_block(block_name)
         self.graphs[self.opened_function].add_edge(new_node, exception_node, "exception")
 
+        # move the main node to the back of the list, so that the assignment can be handled properly
+        index = self.node_stack[self.opened_function].index(new_node)
+        self.node_stack[self.opened_function].append(self.node_stack[self.opened_function].pop(index))
+
     def register_callbr(self, tokens):
         self.rhs = analyze_callbr(tokens)
         prev_node = self.node_stack[self.opened_function][-1]
-
         function_name = self.rhs.get_function_name()
-
         new_node = self.add_node("call {}".format(function_name), self.rhs)
+        self.function_handler.add_callbr(self.opened_function, new_node)
+
+        if function_name not in self.evaluated_functions and function_name not in self.functions_to_evaluate:
+            self.functions_to_evaluate.append(function_name)
 
         for argument in self.rhs.get_function_arguments():
             argument_node = self.graphs[self.opened_function].add_node(argument.get_argument_name())
@@ -534,6 +880,10 @@ class LLVMAnalyser:
         first_node = self.top_graph_nodes[self.opened_function]
         self.top_graph.add_edge(first_node, final_node)
 
+        # move the main node to the back of the list, so that the assignment can be handled properly
+        index = self.node_stack[self.opened_function].index(new_node)
+        self.node_stack[self.opened_function].append(self.node_stack[self.opened_function].pop(index))
+
     def register_resume(self, tokens):
         self.rhs = analyze_resume(tokens)
         node_name = "resume {} {}".format(self.rhs.get_type(), self.rhs.get_type())
@@ -545,18 +895,21 @@ class LLVMAnalyser:
         new_node = self.add_node("unreachable")
         self.graphs[self.opened_function].add_edge(prev_node, new_node)
 
+    # Analyze Unary operations
+    # ------------------------
+    # register_fneg()
+
+    def register_fneg(self, tokens):
+        self.rhs = analyze_fneg(tokens)
+        node_name = "fneg {}".format(self.rhs.get_value())
+        self.register_statement(node_name)
+
     # Analyze Binary operations
     # -------------------------
     # register_binary_op()
-    # register_fp_binary_op()
 
     def register_binary_op(self, tokens):
         self.rhs = self.binary_op_analyzer.analyze_binary_op(tokens)
-        node_name = "{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2())
-        self.register_statement(node_name)
-
-    def register_fp_binary_op(self, tokens):
-        self.rhs = self.fp_binary_op_analyzer.analyze_fp_binary_op(tokens)
         node_name = "{} {} {}".format(self.rhs.get_value1(), self.rhs.get_op(), self.rhs.get_value2())
         self.register_statement(node_name)
 
@@ -635,10 +988,9 @@ class LLVMAnalyser:
 
     def register_store(self, tokens):
         self.rhs = analyze_store(tokens)
-        new_node = self.register_statement("{} = {}".format(self.rhs.get_register(), str(self.rhs.get_value())))
+        self.register_statement("{} = {}".format(self.rhs.get_register(), str(self.rhs.get_value())))
 
-        self.opened_function_memory.assign_value_to_reg(self.rhs.get_register(), self.rhs.get_value())
-        self.opened_function_memory.add_node_to_reg(self.rhs.get_register(), new_node)
+        self.stores[self.opened_function][self.rhs.get_register()] = self.rhs.get_value()
 
     def register_cmpxchg(self, tokens):
         self.rhs = analyze_cmpxchg(tokens)
@@ -699,11 +1051,15 @@ class LLVMAnalyser:
         self.register_statement(node_name)
 
     def analyze_call(self, tokens):
-        self.rhs = self.call_analyzer.analyze_call(tokens)
+        self.rhs = analyze_call(tokens)
         function_name = self.rhs.function_name
         function_call = "call {}".format(function_name)
 
+        if function_name not in self.evaluated_functions and function_name not in self.functions_to_evaluate:
+            self.functions_to_evaluate.append(function_name)
+
         new_node = self.register_statement(function_call)
+        self.function_handler.add_call(self.opened_function, new_node)
 
         for argument in self.rhs.get_arguments():
             argument_node = self.graphs[self.opened_function].add_node(argument.get_register())
@@ -717,6 +1073,10 @@ class LLVMAnalyser:
         first_node = self.top_graph_nodes[self.opened_function]
         self.top_graph.add_edge(first_node, final_node)
 
+        # move the main node to the back of the list, so that the assignment can be handled properly
+        index = self.node_stack[self.opened_function].index(new_node)
+        self.node_stack[self.opened_function].append(self.node_stack[self.opened_function].pop(index))
+
     # analyze assignment
     # ------------------
     # assignments are tracked to determine the linkage of variables, and to track value at time of analysis
@@ -725,7 +1085,6 @@ class LLVMAnalyser:
         self.assignee = tokens[0]
 
     def register_function_end(self):
-        self.opened_function_memory = None
         self.opened_function = None
 
     # create a new node, based upon the statement given
@@ -753,34 +1112,14 @@ class LLVMAnalyser:
         self.node_stack[self.opened_function].append(new_node)
         return new_node
 
-    # we need to determine what values correspond to the registers used for testing
-    # we will trace the assigned values to registers throughout the function
-    # when it halts at a constant, we stop our trace, and assume that this is a value that is used
-    # to compare against, and not the value under test
-    # in case we encounter a function, we return the first register that is used
-    @staticmethod
-    def check_for_initial_call(token, memory):
-        current = [token]
-        new = list()
 
-        while True:
-            while current:
-                new_token = current.pop(0)
+class AssignedValue:
+    def __init__(self, value, ref=False):
+        self.value = value
+        self.memory_ref = ref
 
-                # assigned by instruction we skipped, therefore assumed to be irrelevant
-                if not memory.is_reg_in_mem(new_token):
-                    continue
+    def is_reference(self):
+        return self.memory_ref
 
-                next_rhs = memory.get_val(new_token)
-                if isinstance(next_rhs, Call):
-                    return new_token
-
-                used_var = next_rhs.get_used_variables()
-                if used_var is not None:
-                    new += used_var
-
-            if not new:
-                return None
-
-            current = new
-            new = list()
+    def __str__(self):
+        return self.value

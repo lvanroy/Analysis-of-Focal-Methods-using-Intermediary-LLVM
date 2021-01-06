@@ -45,3 +45,6 @@ class IndirectBr(LlvmStatement):
 
     def get_labels(self):
         return self.labels
+
+    def get_used_variables(self):
+        return [self.address]

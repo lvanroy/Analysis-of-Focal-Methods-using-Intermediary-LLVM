@@ -1,3 +1,6 @@
+import re
+
+
 # this class will be used to validate each token against the possible values a field can have
 def is_linkage_type(token):
     return token in {"private", "internal", "available externally", "linkonce", "weak",
@@ -18,7 +21,7 @@ def is_dll_storage_class(token):
 
 
 def is_calling_convention(token):
-    return token in {"ccc", "fastcc", "coldcc", "cc 10", "cc 11", "webkit_jscc",
+    return token in {"ccc", "fastcc", "coldcc", "cc", "cc", "webkit_jscc",
                      "anyregcc", "preserve_mostcc", "preserve_allcc", "cxx_fast_tlscc",
                      "swiftcc", "tailcc", "cfguard_checkcc"}
 
@@ -36,17 +39,19 @@ def is_group_attribute(token):
 
 
 def is_parameter_attribute(token):
-    is_attr = token in {"zeroext", "signext", "inreg", "byval", "inalloca",
-                        "sret", "noalias", "nocapture", "nofree", "nest",
-                        "returned", "nonnull", "swiftself", "swifterror",
-                        "immarg", "noundef"}
-    is_attr = is_attr | ("byval" in token) | ("byref" in token) | ("dereferenceable_or_null" in token)
-    is_attr = is_attr | ("align" in token) | ("dereferenceable" in token) | ("preallocated" in token)
+    is_attr = token.replace(",", "") in {"zeroext", "signext", "inreg", "byval", "inalloca",
+                                         "sret", "noalias", "nocapture", "nofree", "nest",
+                                         "returned", "nonnull", "swiftself", "swifterror",
+                                         "immarg", "noundef", "align"}
+    is_attr = is_attr or re.match(r'^byval\(.*?\)?,?', token) or re.match(r'^byref\(.*?\)?', token)
+    is_attr = is_attr or re.match(r'^preallocated\(.*?\)?,?', token) or re.match(r'^dereferenceable\(.*?\)?,?', token)
+    is_attr = is_attr or re.match(r'^align\(.*?\)?,?', token) or re.match(r'dereferenceable_or_null\(.*?\)?,?', token)
+    is_attr = is_attr or re.match(r'^sret\(.*\)?,?', token)
     return is_attr
 
 
 def is_function_attribute(token):
-    is_attr = token in {"alwaysinline", "builtin", "cold", "convergent", "inaccessiblememonly",
+    is_attr = token in {"alwaysinline", "builtin", "cold", "convergent", "hot", "inaccessiblememonly",
                         "inaccessiblemem_or_argmemonly", "inlinehint", "jumptable", "minsize",
                         "naked", "\"no-inline-line-tables\"", "no-jump-tables", "nobuiltin",
                         "noduplicate", "nofree", "noimplicitfloat", "noinline", "nomerge",
@@ -58,13 +63,14 @@ def is_function_attribute(token):
                         "safestack", "sanitize_address", "sanitize_memory", "sanitize_thread",
                         "sanitize_hwaddress", "sanitize_memtag", "speculative_load_hardening",
                         "speculatable", "ssp", "sspreq", "sspstrong", "strictfp", "\"denormal-fp-math\"",
-                        "\"denormal-fp-math-f32\"", "\"thunk\"", "uwtable", "nocf_check", "shadowcallstack"}
+                        "\"denormal-fp-math-f32\"", "\"thunk\"", "uwtable", "nocf_check", "shadowcallstack",
+                        "\"probe-stack\"", "mustprogress"}
     is_attr = is_attr | ("alignstack" in token) | ("allocsize" in token)
     return is_attr
 
 
 def is_address_space(token):
-    return "#" in token
+    return "#" in token or re.match(r'^addrspace\(\d*?\)$', token)
 
 
 def is_comdat(token):
@@ -72,7 +78,7 @@ def is_comdat(token):
 
 
 def is_metadata(token):
-    return "!" in token
+    return token[0] == "!"
 
 
 def is_tail(token):
@@ -82,3 +88,7 @@ def is_tail(token):
 def is_fast_math_flag(token):
     return token in {"nnan", "ninf", "nsz", "arcp", "contract",
                      "afn", "reassoc", "fast"}
+
+
+def is_tls(token):
+    return token in {"localdynamic", "initialexec", "localexec"}

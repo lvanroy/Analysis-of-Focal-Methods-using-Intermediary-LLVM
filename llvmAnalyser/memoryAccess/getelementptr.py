@@ -1,4 +1,5 @@
 from llvmAnalyser.types import get_type
+from llvmAnalyser.values import get_value
 from llvmAnalyser.llvmStatement import LlvmStatement
 
 '''
@@ -6,6 +7,9 @@ Overview:
 The 'getelementptr' instruction is used to get the address of a subelement of an aggregate data structure. It performs
 address calculation only and does not access memory. The instruction can also be used to calculate a vector of such 
 addresses.
+<result> = getelementptr <ty>, <ty>* <ptrval>{, [inrange] <ty> <idx>}*
+<result> = getelementptr inbounds <ty>, <ty>* <ptrval>{, [inrange] <ty> <idx>}*
+<result> = getelementptr <ty>, <ptr vector> <ptrval>, [inrange] <vector index type> <idx>
 '''
 
 
@@ -30,7 +34,8 @@ def analyze_getelementptr(tokens: list):
     _, tokens = get_type(tokens)
 
     # get the value
-    op.set_value(tokens.pop(0).replace(",", ""))
+    value, tokens = get_value(tokens)
+    op.set_value(value)
 
     # access potential further indices
     while len(tokens) != 0:
@@ -41,7 +46,7 @@ def analyze_getelementptr(tokens: list):
         _, tokens = get_type(tokens)
 
         # get the index value
-        op.add_index(tokens.pop(0))
+        op.add_index(tokens.pop(0).replace(",", ""))
 
     return op
 

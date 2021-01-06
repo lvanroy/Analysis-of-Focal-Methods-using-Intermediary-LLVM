@@ -21,6 +21,7 @@ class Graph:
         self.assertions = list()
 
         self.func = re.compile(r'^.*(= )?call .*$')
+        self.invoke = re.compile(r'^.*(= )?invoke .*$')
 
     def register_start_of_block(self, block_name):
         for node in self.nodes.values():
@@ -122,6 +123,8 @@ class Graph:
         for node in added_nodes:
             if node.is_test():
                 output += "\t{}, fontcolor=green];\n".format(str(node)[:-1])
+            elif node.is_mutator():
+                output += "\t{}, fontcolor=sienna];\n".format(str(node)[:-1])
             elif node.is_assertion():
                 output += "\t{}, fontcolor=red];\n".format(str(node)[:-1])
             elif node.is_test_var():
@@ -129,7 +132,7 @@ class Graph:
             else:
                 output += "\t{};\n".format(node)
 
-            if self.func.match(node.get_name()):
+            if self.func.match(node.get_name()) or self.invoke.match(node.get_name()):
                 arguments = node.get_arguments()
                 if len(arguments) != 0:
                     argument_header = self.add_node("arguments")

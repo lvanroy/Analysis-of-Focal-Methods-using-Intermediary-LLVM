@@ -67,4 +67,4 @@ class Cmp(LlvmStatement):
         return self.value2
 
     def get_used_variables(self):
-        return [self.value1, self.value2]
+        return [self.condition, self.value1, self.value2]

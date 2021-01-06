@@ -1,2 +1,0 @@
-# Goal Oriented Mutation Testing
- 

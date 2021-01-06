@@ -29,35 +29,11 @@ def get_libs(testing_framework):
 
 print("[1/4]: Validating environment - started")
 
-if which("clang") is None:
-    print("Error: This tool requires clang to operate, please install clang and try again.")
-    exit(0)
-else:
-    print("-- clang found")
-
-if which("cmake") is None:
-    print("Error: This tool requires Cmake to operate, please install Cmake and try again.")
-    exit(0)
-else:
-    print("-- Cmake found")
-
-if which("make") is None:
-    print("Error: This tool requires make to operate, please install make and try again.")
-    exit(0)
-else:
-    print("-- make found")
-
 if which("dot") is None:
     print("Error: This tool requires graphviz to operate, please install graphviz and try again.")
     exit(0)
 else:
     print("-- graphviz found")
-
-if which("llvm-link") is None:
-    print("Error: This tool requires llvm to operate, please install llvm and try again.")
-    exit(0)
-else:
-    print("-- llvm found")
 
 print("[1/4]: Validating environment - finished")
 
@@ -65,7 +41,6 @@ print("[2/4]: building llvm - started")
 
 if not path.exists("build"):
     call(["mkdir", "build"], stdout=DEVNULL)
-
 
 print("-- cmake - started")
 c_compiler = "-DCMAKE_C_COMPILER={}".format(config["c"]["c_clang_path"])

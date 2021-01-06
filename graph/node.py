@@ -10,6 +10,7 @@ class Node:
         self.assertion = False
         self.start = False
         self.test_var = False
+        self.mutator_function = False
 
     def __str__(self):
         if self.final:
@@ -33,6 +34,12 @@ class Node:
 
     def is_test(self):
         return self.start
+
+    def is_mutator(self):
+        return self.mutator_function
+
+    def set_mutator(self):
+        self.mutator_function = True
 
     def set_assertion(self):
         self.assertion = True
@@ -61,5 +68,11 @@ class Node:
     def add_inc(self, node):
         self.inc.append(node)
 
+    def get_incs(self):
+        return self.inc
+
     def add_out(self, node):
         self.out.append(node)
+
+    def get_outs(self):
+        return self.out

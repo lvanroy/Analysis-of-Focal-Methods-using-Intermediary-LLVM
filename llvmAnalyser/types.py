@@ -6,6 +6,9 @@ vector = re.compile(r'<(vscale x )?[0-9]* x (?:i[1-9][0-9]*|half|bfloat|float|do
 # this function takes a chain of tokens of which the type has to start in the first token
 # it will return the entire type that is specified along with the remaining tokens
 def get_type(tokens):
+    if "\"" in tokens[0]:
+        return get_string_type(tokens)
+
     if tokens[0][0] == "{" or tokens[0][1] == "{":
         return get_struct_type(tokens)
 
@@ -20,8 +23,14 @@ def get_type(tokens):
 
     # register end of type
     if specified_type[-1] == "," and specified_type.count("(") == specified_type.count(")"):
-        if specified_type[-1] == ",":
-            specified_type = specified_type[:-1]
+        specified_type = specified_type[:-1]
+        return specified_type, tokens
+
+    if specified_type[-1] == ")" and specified_type.count("(") + 1 == specified_type.count(")"):
+        specified_type = specified_type[:-1]
+        return specified_type, tokens
+
+    if len(tokens) >= 5 and tokens[0][:5] == "(...)":
         return specified_type, tokens
 
     return check_for_templated_parts(specified_type, tokens)
@@ -45,8 +54,10 @@ def check_for_function_type(specified_type, tokens):
         open_counter -= tokens[0].count(")")
         specified_type += " {}".format(tokens[0])
         tokens.pop(0)
-        if open_counter == 0:
+        if open_counter <= 0:
             if specified_type[-1] == ",":
+                specified_type = specified_type[:-1]
+            if specified_type[-1] == ")" and open_counter < 0:
                 specified_type = specified_type[:-1]
             return specified_type, tokens
 
@@ -60,11 +71,11 @@ def check_for_pointer_type(specified_type, tokens):
     if "*" not in tokens[0] or ("(" in tokens[0] and tokens[0].count("(") != tokens[0].count(")")):
         return check_for_function_type(specified_type, tokens)
 
-    temp_tokens = tokens[0].split("*")
-    if temp_tokens[1] != "":
-        tokens[0] = temp_tokens[1]
-    else:
-        tokens.pop(0)
+    elif tokens[0].count("(") == tokens[0].count(")") and "*" not in tokens[0].rsplit(")", 1)[-1]:
+        return check_for_function_type(specified_type, tokens)
+
+    temp_tokens = tokens[0].rsplit("*", 1)
+    tokens.pop(0)
 
     specified_type += " {}*".format(temp_tokens[0])
     return check_for_function_type(specified_type, tokens)
@@ -129,3 +140,19 @@ def get_struct_type(tokens):
         tokens.pop(0)
         if "}" in specified_type:
             return check_for_pointer_type(specified_type, tokens)
+
+
+# check if the type is a type specified in string
+def get_string_type(tokens):
+    if "\"" not in tokens[0]:
+        return None
+
+    specified_type = tokens[0]
+    tokens.pop(0)
+    while True:
+        if specified_type.count("\"") == 2:
+            if specified_type[-1] == ")" and specified_type.count("(") + 1 == specified_type.count(")"):
+                specified_type = specified_type[:-1]
+            return check_for_function_type(specified_type, tokens)
+        specified_type += " {}".format(tokens[0])
+        tokens.pop(0)

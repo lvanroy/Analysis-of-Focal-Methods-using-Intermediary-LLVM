@@ -1,17 +1,17 @@
 import re
 from llvmAnalyser.types import get_type
-from llvmAnalyser.llvmChecker import is_fast_math_flag
+from llvmAnalyser.llvmChecker import is_fast_math_flag, is_parameter_attribute
 
 # this function accepts a chain of tokens and will return the defined value within it
 # the value needs to start on the first token
 # the return will be a tuple containing the value that was found, as well as the remaining tokens
 
-boolean = re.compile(r'^((false)|(true))(,|\))?$')
-fp = re.compile(r'^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?(,|\))?$')
-fp_hex = re.compile(r'^0x[0-9a-fA-F]+(,|\))?$')
-null_none_undef = re.compile(r'^((null)|(none)|(undef))(,|\))?$')
-zeroinitializer = re.compile(r'^zeroinitializer(,|\))?$')
-global_var = re.compile(r'^@([_\.][0-9a-zA-Z]+)+(,|\))?$')
+boolean = re.compile(r'^((false)|(true))(,|\)|\),)?$')
+fp = re.compile(r'^[-+]?[0-9]+[.]?[0-9]*([eE][-+]?[0-9]+)?(,|\)|\),)?$')
+fp_hex = re.compile(r'^0x[0-9a-fA-F]+(,|\)|\),)?$')
+null_none_undef = re.compile(r'^((null)|(none)|(undef))(,|\)|\),)?$')
+zeroinitializer = re.compile(r'^zeroinitializer(,|\)|\),)?$')
+global_var = re.compile(r'^@([_\.][0-9a-zA-Z]+)+(,|\)|\),)?$')
 
 
 def remove_trailing_char(value):
@@ -22,8 +22,33 @@ def remove_trailing_char(value):
     return value
 
 
+def get_final_bracket_token(tokens):
+    tokens[0] = tokens[0][1:]
+
+    open_brackets = 1
+
+    # loop over the tokens until this first bracket is closed again, when this happens, return the index
+    for i in range(len(tokens)):
+        for j in range(len(tokens[i])):
+            char = tokens[i][j]
+            if char == "(":
+                open_brackets += 1
+            elif char == ")":
+                open_brackets -= 1
+            if open_brackets == 0:
+                if tokens[i][j + 1:] != "" and tokens[i][j + 1:] != ",":
+                    tokens.insert(i + 1, tokens[i][j + 1:])
+                tokens[i] = tokens[i][:j]
+                return i
+
+
 def get_value(tokens):
     value = tokens.pop(0)
+
+    # match variable argument
+    if value == "...":
+        value = remove_trailing_char(value)
+        return value, tokens
 
     # match registers
     if value[0] == "%":
@@ -107,6 +132,16 @@ def get_value(tokens):
 
 
 def get_value_from_conversion(op, tokens):
+    i = len(tokens)
+
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        i = get_final_bracket_token(tokens)
+
+        # add one, as the i indexing starts from 0
+        i += 1
+
+    start_len = len(tokens)
     # get the original value
     type1, tokens = get_type(tokens)
     op += " {}".format(type1)
@@ -116,13 +151,18 @@ def get_value_from_conversion(op, tokens):
     # pop the to token
     op += " {}".format(tokens.pop(0))
 
+    i -= start_len - len(tokens)
+
     # get the final type
-    type2, tokens = get_type(tokens)
-    op += " {}".format(type2)
+    while i > 0 and "dereferenceable" not in tokens[0]:
+        op += " {}".format(tokens.pop(0))
+        i -= 1
 
     # pop potential remaining tokens
-    while tokens and "dereferenceable" in tokens[0]:
+    while i > 0 and "dereferenceable" in tokens[0]:
         tokens.pop(0)
+        tokens.pop(0)
+        i -= 2
 
     return op
 
@@ -132,9 +172,11 @@ def get_value_from_getelementptr(value, tokens):
     if tokens[0] == "inbounds":
         value += " {}".format(tokens.pop(0))
 
+    desired_token_length = 0
+
     # pop a potential opening bracket
     if tokens[0][0] == "(":
-        tokens[0] = tokens[0][1:]
+        desired_token_length = len(tokens) - get_final_bracket_token(tokens) - 1
 
     # get the type
     type1, tokens = get_type(tokens)
@@ -149,7 +191,7 @@ def get_value_from_getelementptr(value, tokens):
     value += " {},".format(const_val)
 
     # access potential further indices
-    while value[-1] == "," and value[-2] != ")":
+    while desired_token_length != len(tokens) and value[-1] == ",":
         if tokens[0] == "inrange":
             value += " {}".format(tokens.pop(0))
 
@@ -160,10 +202,17 @@ def get_value_from_getelementptr(value, tokens):
         # get the index value
         value += " {}".format(tokens.pop(0))
 
+    if value[-1] == ",":
+        value = value[:-1]
+
     return value
 
 
 def get_value_from_select(value, tokens):
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        tokens[0] = tokens[0][1:]
+
     # pop the potential fast-math flags
     while is_fast_math_flag(tokens[0]):
         value += " {}".format(tokens.pop(0))
@@ -193,6 +242,10 @@ def get_value_from_icmp_or_fcmp(value, tokens):
     # get the condition
     value += " {}".format(tokens.pop(0))
 
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        get_final_bracket_token(tokens)
+
     # get the type
     optype, tokens = get_type(tokens)
     value += " {}".format(optype)
@@ -209,6 +262,10 @@ def get_value_from_icmp_or_fcmp(value, tokens):
 
 def get_value_from_vector_op(value, tokens):
     op_type = value
+
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        tokens[0] = tokens[0][1:]
 
     # get the first type value pair
     vector_type, tokens = get_type(tokens)
@@ -235,6 +292,21 @@ def get_value_from_vector_op(value, tokens):
 def get_value_from_aggregate_op(value, tokens):
     op_type = value
 
+    desired_token_length = 0
+
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        # keep track of the original length, because there is chance that an element will get split into two
+        # elements, in case there is valuable information trailing behind the closed bracket
+        original_len = len(tokens)
+
+        desired_token_length = len(tokens) - get_final_bracket_token(tokens)
+
+        desired_token_length += len(tokens) - original_len
+
+        # add one, as we index from zero
+        desired_token_length -= 1
+
     # get the first type value pair
     struct_type, tokens = get_type(tokens)
     struct_value, tokens = get_value(tokens)
@@ -249,13 +321,20 @@ def get_value_from_aggregate_op(value, tokens):
         value += " {},".format(insert_value)
 
     # get the indices
-    while value[-1] == ",":
+    while len(tokens) != desired_token_length:
         value += " {}".format(tokens.pop(0))
+
+    if value[-1] == ",":
+        value = value[:-1]
 
     return value
 
 
 def get_value_from_bianry_op(value, tokens):
+    # pop a potential opening bracket
+    if tokens[0][0] == "(":
+        tokens[0] = tokens[0][1:]
+
     # pop potential nuw token
     if tokens[0] == "nuw":
         value += " {}".format(tokens.pop(0))
