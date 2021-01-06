@@ -1,0 +1,20 @@
+class Profile
+  firstName
+  lastName
+	
+  method setFirstName(profile, name)
+    store name in profile.firstName
+  endmethod
+	
+  method getFirstName(profile)
+    var = load firstName from profile
+    return var
+  endmethod
+endclass
+	
+method testSetFirstName()
+  p = Profile()
+  p.setFirstName("Ani")
+  name = p.getFirstName()
+  assertEq(name, "Ani")
+endmethod

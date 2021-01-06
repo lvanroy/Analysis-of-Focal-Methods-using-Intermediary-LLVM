@@ -1,0 +1,21 @@
+\begin{Verbatim}[commandchars=\\\{\}]
+\PYG{k}{class} \PYG{n+nc}{Score}\PYG{p}{\PYGZob{}}
+ \PYG{k}{private}\PYG{o}{:}
+   \PYG{k+kt}{int} \PYG{n}{maxScore}\PYG{p}{;}
+   \PYG{k+kt}{int} \PYG{n}{obtainedScore}\PYG{p}{;}
+  	
+ \PYG{k}{public}\PYG{o}{:}
+   \PYG{k+kt}{void} \PYG{n}{setObtainedScore}\PYG{p}{(}\PYG{k+kt}{int} \PYG{n}{score}\PYG{p}{)\PYGZob{}}
+     \PYG{k}{this}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{obtainedScore} \PYG{o}{=} \PYG{n}{score}\PYG{p}{;}
+   \PYG{p}{\PYGZcb{}}
+   \PYG{k+kt}{int} \PYG{n}{getObtainedScore}\PYG{p}{()\PYGZob{}}
+     \PYG{k}{return} \PYG{k}{this}\PYG{o}{\PYGZhy{}\PYGZgt{}}\PYG{n}{obtainedScore}\PYG{p}{;}
+   \PYG{p}{\PYGZcb{}}
+\PYG{p}{\PYGZcb{}}
+\PYG{n}{TEST}\PYG{p}{(}\PYG{n}{ScoreTester}\PYG{p}{,} \PYG{n}{setObtainedScore}\PYG{p}{)\PYGZob{}}
+   \PYG{n}{Score} \PYG{n}{score}\PYG{p}{;}
+	
+   \PYG{n}{score}\PYG{p}{.}\PYG{n}{setObtainedScore}\PYG{p}{(}\PYG{l+m+mi}{19}\PYG{p}{);}
+   \PYG{n}{ASSERT\PYGZus{}EQ}\PYG{p}{(}\PYG{n}{score}\PYG{p}{.}\PYG{n}{getObtainedScore}\PYG{p}{(),} \PYG{l+m+mi}{19}\PYG{p}{);}
+\PYG{p}{\PYGZcb{}}
+\end{Verbatim}
