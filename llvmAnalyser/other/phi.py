@@ -36,7 +36,7 @@ def analyze_phi(tokens):
         value = ""
         while "," not in tokens[0]:
             value += tokens.pop(0)
-        tokens.pop(0).replace(",", "")
+        value += tokens.pop(0).replace(",", "")
         option.set_value(value)
 
         # get the label

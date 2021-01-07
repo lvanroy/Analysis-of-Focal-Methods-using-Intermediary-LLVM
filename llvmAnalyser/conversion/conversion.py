@@ -52,7 +52,7 @@ def analyze_conversion(tokens):
                     if tokens[i][j+1:] != "":
                         tokens.insert(i+1, tokens[i][j+1:])
                     tokens[i] = tokens[i][:j]
-                    final_index = i
+                    final_index = i + 1
                     break
             if final_index != len(tokens):
                 break

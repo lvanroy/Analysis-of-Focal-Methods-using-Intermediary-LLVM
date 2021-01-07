@@ -118,6 +118,9 @@ class CallBr(LlvmStatement):
     def set_return_type(self, return_type):
         self.return_type = return_type
 
+    def returns_pointer(self):
+        return self.return_type[-1] == "*"
+
     def get_return_type(self):
         return self.return_type
 

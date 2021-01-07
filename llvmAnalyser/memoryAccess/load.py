@@ -37,7 +37,8 @@ def analyze_load(tokens):
         tokens.pop(0)
 
     # skip type
-    _, tokens = get_type(tokens)
+    resulting_type, tokens = get_type(tokens)
+    load.set_type(resulting_type)
 
     # check for ,
     if tokens[0] == ",":
@@ -57,12 +58,19 @@ class Load(LlvmStatement):
     def __init__(self):
         super().__init__()
         self.value = None
+        self.resulting_type = None
 
     def set_value(self, value):
         self.value = value
 
     def get_value(self):
         return self.value
+
+    def set_type(self, resulting_type):
+        self.resulting_type = resulting_type
+
+    def returns_pointer(self):
+        return self.resulting_type[-1] == "*"
 
     def get_used_variables(self):
         return [self.value]
