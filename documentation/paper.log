@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 20.12) (preloaded format=pdflatex 2021.1.5)  6 JAN 2021 12:51
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 20.12) (preloaded format=pdflatex 2021.1.5)  6 JAN 2021 20:19
 entering extended mode
 **./paper.tex
 (paper.tex
@@ -1634,7 +1634,7 @@ Package logreq Info: Writing requests to 'paper.run.xml'.
 Here is how much of TeX's memory you used:
  37297 strings out of 479624
  786353 string characters out of 2863212
- 1558415 words of memory out of 3000000
+ 1559415 words of memory out of 3000000
  53755 multiletter control sequences out of 15000+200000
  416743 words of font info for 78 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
@@ -1656,7 +1656,7 @@ larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfonts/cm/cmsy10.p
 fb><C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfont
 s/cm/cmti10.pfb><C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/p
 ublic/amsfonts/cm/cmti12.pfb>
-Output written on paper.pdf (9 pages, 241224 bytes).
+Output written on paper.pdf (9 pages, 241171 bytes).
 PDF statistics:
  279 PDF objects out of 1000 (max. 8388607)
  65 named destinations out of 1000 (max. 500000)
