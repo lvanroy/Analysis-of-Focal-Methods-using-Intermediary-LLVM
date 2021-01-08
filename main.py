@@ -19,6 +19,10 @@ if which("dot") is None:
 else:
     print("-- graphviz found")
 
+if config["max_depth"] == 0:
+    print("Error: The minimal depth is 1.")
+    exit(0)
+
 print("[1/3]: Validating environment - finished")
 
 print("[2/3]: llvm analysis - started")

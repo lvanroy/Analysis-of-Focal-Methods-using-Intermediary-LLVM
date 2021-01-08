@@ -252,9 +252,6 @@ class LLVMAnalyser:
 
             # iterate over all (var, node) pairs stored for the current iteration
             for test_var, test_node, contains, depth in current_iteration:
-                # if depth > max_depth:
-                #     continue
-
                 # check if the current state is registered within the checked states dictionary
                 if test_node not in checked_states:
                     checked_states[test_node] = set()
@@ -286,6 +283,7 @@ class LLVMAnalyser:
                 function_name = None
                 is_defined = False
                 is_excluded = False
+                is_intrinsic = False
 
                 # verify whether or not a function was used
                 if isinstance(context, (Call, Invoke, CallBr)):
@@ -298,8 +296,12 @@ class LLVMAnalyser:
                     if function_name in self.node_stack:
                         is_defined = True
 
+                    if re.match(r'@llvm\.(memcpy|memset|memmove).*', function_name):
+                        is_intrinsic = True
+                        is_excluded = True
+
                     # if the current context is another assertion related function, we can just carry on
-                    # as this will be evaluated in a separate call
+                    # as its respective used variables will be evaluated in a separate evaluation
                     if self.assertion_identifier.match(function_name):
                         for inc in test_node.get_incs():
                             next_iteration.append((test_var, inc, contains, depth + 1))
@@ -423,8 +425,7 @@ class LLVMAnalyser:
 
                 # check if we called an intrinsic memory move function upon a variable that contained our
                 # original test var
-                intrinsic_functions = r'@llvm\.(memcpy|memset|memmove).*'
-                if is_func_call and re.match(intrinsic_functions, function_name):
+                if is_func_call and is_intrinsic:
                     if arguments[1].get_register() == test_var and contains:
                         next_iteration.append((arguments[0].get_register(), root, True, 0))
 
@@ -440,7 +441,7 @@ class LLVMAnalyser:
         return focal_methods
 
     # see if an argument of a function is mutated within that function scope
-    def is_arg_mutated(self, var, ref=False):
+    def is_arg_mutated(self, var, ref=False, recursion_depth=1):
         mutation_type = "inspector"
         returns_ref = False
 
@@ -449,10 +450,21 @@ class LLVMAnalyser:
 
         next_iteration = list()
 
+        encountered = dict()
+
         while current_iteration:
             for tracked_variable, is_ref in current_iteration:
-                # this means the function was never analysed, and was therefore not defined our below our max depth
-                if self.opened_function not in self.node_stack:
+                if tracked_variable in encountered and is_ref in encountered[tracked_variable]:
+                    continue
+                elif tracked_variable in encountered:
+                    encountered[tracked_variable].append(is_ref)
+                else:
+                    encountered[tracked_variable] = list()
+
+                # this means the function was never analysed, and was therefore not defined
+                # in case it was defined, but below the max depth, our current depth will be equal to the
+                # max depth, and we will not consider the function as being uncertain
+                if self.opened_function not in self.node_stack and recursion_depth < self.config["max_depth"]:
                     return "uncertain", False
 
                 used_functions = self.function_handler.get_used_functions(self.opened_function)
@@ -476,18 +488,18 @@ class LLVMAnalyser:
                                     mut = self.found_mutation_types[self.opened_function][new_var][is_ref]
                                 else:
                                     self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
-                                    mut, ref = self.is_arg_mutated(new_var, is_ref)
+                                    mut, ref = self.is_arg_mutated(new_var, is_ref, recursion_depth + 1)
                                     self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
                             else:
                                 self.found_mutation_types[self.opened_function][new_var] = dict()
                                 self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
-                                mut, ref = self.is_arg_mutated(new_var, is_ref)
+                                mut, ref = self.is_arg_mutated(new_var, is_ref, recursion_depth + 1)
                                 self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
                         else:
                             self.found_mutation_types[self.opened_function] = dict()
                             self.found_mutation_types[self.opened_function][new_var] = dict()
                             self.found_mutation_types[self.opened_function][new_var][is_ref] = "inspector"
-                            mut, ref = self.is_arg_mutated(new_var, is_ref)
+                            mut, ref = self.is_arg_mutated(new_var, is_ref, recursion_depth + 1)
                             self.found_mutation_types[self.opened_function][new_var][is_ref] = mut
 
                         self.opened_function = temp
@@ -501,7 +513,8 @@ class LLVMAnalyser:
                             re.match(intrinsic_functions, func_name):
                         return "mutator", False
 
-                    elif tracked_variable in arg_regs and func_name not in self.node_stack:
+                    elif tracked_variable in arg_regs and func_name not in self.node_stack and \
+                            recursion_depth + 1 < self.config["max_depth"]:
                         mutation_type = "uncertain"
 
                 # this means we assigned to a reference to the tracked variable
