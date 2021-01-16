@@ -17,94 +17,6 @@
 \endgroup
 
 \datalist[entry]{nty/global//global/global}
-  \entry{10.1007/978-3-540-73101-6_14}{inproceedings}{}
-    \name{author}{4}{}{%
-      {{hash=BP}{%
-         family={Bouillon},
-         familyi={B\bibinitperiod},
-         given={Philipp},
-         giveni={P\bibinitperiod},
-      }}%
-      {{hash=KJ}{%
-         family={Krinke},
-         familyi={K\bibinitperiod},
-         given={Jens},
-         giveni={J\bibinitperiod},
-      }}%
-      {{hash=MN}{%
-         family={Meyer},
-         familyi={M\bibinitperiod},
-         given={Nils},
-         giveni={N\bibinitperiod},
-      }}%
-      {{hash=SF}{%
-         family={Steimann},
-         familyi={S\bibinitperiod},
-         given={Friedrich},
-         giveni={F\bibinitperiod},
-      }}%
-    }
-    \name{editor}{4}{}{%
-      {{hash=CG}{%
-         family={Concas},
-         familyi={C\bibinitperiod},
-         given={Giulio},
-         giveni={G\bibinitperiod},
-      }}%
-      {{hash=DE}{%
-         family={Damiani},
-         familyi={D\bibinitperiod},
-         given={Ernesto},
-         giveni={E\bibinitperiod},
-      }}%
-      {{hash=SM}{%
-         family={Scotto},
-         familyi={S\bibinitperiod},
-         given={Marco},
-         giveni={M\bibinitperiod},
-      }}%
-      {{hash=SG}{%
-         family={Succi},
-         familyi={S\bibinitperiod},
-         given={Giancarlo},
-         giveni={G\bibinitperiod},
-      }}%
-    }
-    \list{publisher}{1}{%
-      {Springer Berlin Heidelberg}%
-    }
-    \strng{namehash}{BP+1}
-    \strng{fullhash}{BPKJMNSF1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{sortinit}{B}
-    \field{sortinithash}{B}
-    \field{abstract}{%
-    Unit testing is essential in the agile context. A unit test case written
-  long ago may uncover an error introduced only recently, at a time at which
-  awareness of the test and the requirement it expresses may have long
-  vanished. Popular unit testing frameworks such as JUnit may then detect the
-  error at little more cost than the run of a static program checker
-  (compiler). However, unlike such checkers current unit testing frameworks can
-  only detect the presence of errors, they cannot locate them. With EzUnit, we
-  present an extension to the JUnitEclipse plug-in that serves to narrow down
-  error locations, and that marks these locations in the source code in very
-  much the same way syntactic and typing errors are displayed. Because EzUnit
-  is itself designed as a framework, it can be extended by algorithms further
-  narrowing down error locations.%
-    }
-    \field{booktitle}{Agile Processes in Software Engineering and Extreme
-  Programming}
-    \field{isbn}{978-3-540-73101-6}
-    \field{pages}{101\bibrangedash 104}
-    \field{title}{EzUnit: A Framework for Associating Failed Unit Tests with
-  Potential Programming Errors}
-    \list{location}{1}{%
-      {Berlin, Heidelberg}%
-    }
-    \field{year}{2007}
-  \endentry
-
   \entry{8823709}{inproceedings}{}
     \name{author}{3}{}{%
       {{hash=CV}{%
@@ -308,26 +220,29 @@
     \field{year}{2011}
   \endentry
 
-  \entry{7335402}{inproceedings}{}
+  \entry{ghafari2015automatically}{inproceedings}{}
     \name{author}{3}{}{%
       {{hash=GM}{%
-         family={{Ghafari}},
+         family={Ghafari},
          familyi={G\bibinitperiod},
-         given={M.},
+         given={Mohammad},
          giveni={M\bibinitperiod},
       }}%
       {{hash=GC}{%
-         family={{Ghezzi}},
+         family={Ghezzi},
          familyi={G\bibinitperiod},
-         given={C.},
+         given={Carlo},
          giveni={C\bibinitperiod},
       }}%
       {{hash=RK}{%
-         family={{Rubinov}},
+         family={Rubinov},
          familyi={R\bibinitperiod},
-         given={K.},
+         given={Konstantin},
          giveni={K\bibinitperiod},
       }}%
+    }
+    \list{organization}{1}{%
+      {IEEE}%
     }
     \strng{namehash}{GMGCRK1}
     \strng{fullhash}{GMGCRK1}
@@ -337,13 +252,47 @@
     \field{sortinithash}{G}
     \field{booktitle}{2015 IEEE 15th International Working Conference on Source
   Code Analysis and Manipulation (SCAM)}
-    \verb{doi}
-    \verb 10.1109/SCAM.2015.7335402
-    \endverb
     \field{pages}{61\bibrangedash 70}
     \field{title}{Automatically identifying focal methods under test in unit
   test cases}
     \field{year}{2015}
+  \endentry
+
+  \entry{hayes2009towards}{inproceedings}{}
+    \name{author}{3}{}{%
+      {{hash=HJH}{%
+         family={Hayes},
+         familyi={H\bibinitperiod},
+         given={Jane\bibnamedelima Huffman},
+         giveni={J\bibinitperiod\bibinitdelim H\bibinitperiod},
+      }}%
+      {{hash=DA}{%
+         family={Dekhtyar},
+         familyi={D\bibinitperiod},
+         given={Alex},
+         giveni={A\bibinitperiod},
+      }}%
+      {{hash=JDS}{%
+         family={Janzen},
+         familyi={J\bibinitperiod},
+         given={David\bibnamedelima S},
+         giveni={D\bibinitperiod\bibinitdelim S\bibinitperiod},
+      }}%
+    }
+    \list{organization}{1}{%
+      {IEEE}%
+    }
+    \strng{namehash}{HJHDAJDS1}
+    \strng{fullhash}{HJHDAJDS1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{H}
+    \field{sortinithash}{H}
+    \field{booktitle}{2009 ICSE Workshop on Traceability in Emerging Forms of
+  Software Engineering}
+    \field{pages}{26\bibrangedash 30}
+    \field{title}{Towards traceable test-driven development}
+    \field{year}{2009}
   \endentry
 
   \entry{6298092}{inproceedings}{}
@@ -386,37 +335,6 @@
     \field{pages}{55\bibrangedash 63}
     \field{title}{Agile Testing: Past, Present, and Future -- Charting a
   Systematic Map of Testing in Agile Software Development}
-    \field{year}{2012}
-  \endentry
-
-  \entry{hurdugaci2012aiding}{inproceedings}{}
-    \name{author}{2}{}{%
-      {{hash=HV}{%
-         family={Hurdugaci},
-         familyi={H\bibinitperiod},
-         given={Victor},
-         giveni={V\bibinitperiod},
-      }}%
-      {{hash=ZA}{%
-         family={Zaidman},
-         familyi={Z\bibinitperiod},
-         given={Andy},
-         giveni={A\bibinitperiod},
-      }}%
-    }
-    \list{organization}{1}{%
-      {IEEE}%
-    }
-    \strng{namehash}{HVZA1}
-    \strng{fullhash}{HVZA1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{sortinit}{H}
-    \field{sortinithash}{H}
-    \field{booktitle}{2012 16th European Conference on Software Maintenance and
-  Reengineering}
-    \field{pages}{11\bibrangedash 20}
-    \field{title}{Aiding software developers to maintain developer tests}
     \field{year}{2012}
   \endentry
 
@@ -515,6 +433,31 @@
     \field{volume}{63}
     \field{journaltitle}{IEEE Transactions on Reliability}
     \field{year}{2014}
+  \endentry
+
+  \entry{6716450}{inproceedings}{}
+    \name{author}{1}{}{%
+      {{hash=QA}{%
+         family={{Qusef}},
+         familyi={Q\bibinitperiod},
+         given={A.},
+         giveni={A\bibinitperiod},
+      }}%
+    }
+    \strng{namehash}{QA1}
+    \strng{fullhash}{QA1}
+    \field{labelnamesource}{author}
+    \field{labeltitlesource}{title}
+    \field{sortinit}{Q}
+    \field{sortinithash}{Q}
+    \field{booktitle}{2013 IEEE Jordan Conference on Applied Electrical
+  Engineering and Computing Technologies (AEECT)}
+    \verb{doi}
+    \verb 10.1109/AEECT.2013.6716450
+    \endverb
+    \field{pages}{1\bibrangedash 8}
+    \field{title}{Test-to-code traceability: Why and how?}
+    \field{year}{2013}
   \endentry
 
   \entry{qusef2014recovering}{article}{}
@@ -665,42 +608,6 @@
     }
     \field{year}{2018}
     \warn{\item Can't use 'location' + 'address'}
-  \endentry
-
-  \entry{white2020establishing}{inproceedings}{}
-    \name{author}{3}{}{%
-      {{hash=WR}{%
-         family={White},
-         familyi={W\bibinitperiod},
-         given={Robert},
-         giveni={R\bibinitperiod},
-      }}%
-      {{hash=KJ}{%
-         family={Krinke},
-         familyi={K\bibinitperiod},
-         given={Jens},
-         giveni={J\bibinitperiod},
-      }}%
-      {{hash=TR}{%
-         family={Tan},
-         familyi={T\bibinitperiod},
-         given={Raymond},
-         giveni={R\bibinitperiod},
-      }}%
-    }
-    \list{organization}{1}{%
-      {ACM}%
-    }
-    \strng{namehash}{WRKJTR1}
-    \strng{fullhash}{WRKJTR1}
-    \field{labelnamesource}{author}
-    \field{labeltitlesource}{title}
-    \field{sortinit}{W}
-    \field{sortinithash}{W}
-    \field{booktitle}{42nd International Conference on Software Engineering
-  (ICSE'20)}
-    \field{title}{Establishing Multilevel Test-to-Code Traceability Links}
-    \field{year}{2020}
   \endentry
 \enddatalist
 \endinput

@@ -111,8 +111,6 @@ class LLVMAnalyser:
         self.evaluated_functions = list()
         self.functions_to_evaluate = list()
 
-        self.indent = 0
-
         self.references = dict()
 
     def get_relevant_functions(self, file):
@@ -160,6 +158,21 @@ class LLVMAnalyser:
                         self.analyse(function_names[aliases[function_name]])
 
             depth += 1
+
+        # continue analysing all functions that match the exclusion filter, these functions are assumed to be
+        # functions that are not part of the source code, and are therefore not impacted by the depth limit
+        # mutations that occur at lower depths within excluded code can still lead to mutation in private functions
+        # inside the depth range
+        while self.functions_to_evaluate:
+            temp_copy = copy(self.functions_to_evaluate)
+            self.evaluated_functions += self.functions_to_evaluate
+            self.functions_to_evaluate.clear()
+            for function_name in temp_copy:
+                if self.exclusion_filter.match(function_name) and self.exclusion_filter.pattern != '':
+                    if function_name in function_names:
+                        self.analyse(function_names[function_name])
+                    elif function_name in aliases:
+                        self.analyse(function_names[aliases[function_name]])
 
     def get_focal_methods(self):
         # keep track of the functions under test for each test function
@@ -452,6 +465,9 @@ class LLVMAnalyser:
 
         encountered = dict()
 
+        if recursion_depth - 1 == self.config["max_depth"] and not self.exclusion_filter.match(self.opened_function):
+            return "inspector", False
+
         while current_iteration:
             for tracked_variable, is_ref in current_iteration:
                 if tracked_variable in encountered and is_ref in encountered[tracked_variable]:
@@ -527,7 +543,11 @@ class LLVMAnalyser:
                 is_loaded = tracked_variable in self.loads[self.opened_function]
                 is_stored = tracked_variable in stores
                 is_referenced = tracked_variable in self.references[self.opened_function]
-                if is_ref and ((is_stored and is_loaded) or (is_stored and is_referenced)):
+                if is_stored:
+                    is_already_considered = self.stores[self.opened_function][tracked_variable] in encountered
+                else:
+                    is_already_considered = False
+                if is_ref and not is_already_considered and is_stored and (is_loaded or is_referenced):
                     return "mutator", False
 
                 for lhs, rhs in self.stores[self.opened_function].items():

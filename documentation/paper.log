@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 20.12) (preloaded format=pdflatex 2021.1.5)  6 JAN 2021 20:19
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (MiKTeX 20.12) (preloaded format=pdflatex 2021.1.5)  15 JAN 2021 20:04
 entering extended mode
 **./paper.tex
 (paper.tex
@@ -1555,7 +1555,7 @@ File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 ) [1
 
 {C:/Users/larsv/AppData/Local/MiKTeX/2.9/pdftex/config/pdftex.map}] [2]
-[3]
+[3] [4] [5]
 \openout7 = `paper.listing'.
 
 
@@ -1585,60 +1585,66 @@ Overfull \hbox (13.9663pt too wide) in paragraph at lines 10--11
 [][][][][][][][][][][][][][][][][] 
  []
 
-) [4]
-LaTeX Font Info:    Trying to load font information for OT1+zi4 on input line 1
-84.
+) [6]
+LaTeX Font Info:    Trying to load font information for OT1+zi4 on input line 2
+37.
 
 ("C:\Users\larsv\AppData\Local\Programs\MiKTeX 2.9\tex/latex/inconsolata\ot1zi4
 .fd"
 File: ot1zi4.fd 2018/01/14 OT1/zi4 (Inconsolata)
 )
 LaTeX Font Info:    Font shape `OT1/zi4/m/n' will be
-(Font)              scaled to size 9.0pt on input line 184.
+(Font)              scaled to size 9.0pt on input line 237.
 
 
 Package caption Warning: The option `hypcap=true' will be ignored for this
-(caption)                particular \caption on input line 196.
+(caption)                particular \caption on input line 249.
 See the caption package documentation for explanation.
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 204--210
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 270.
+See the caption package documentation for explanation.
+
+
+Underfull \hbox (badness 10000) in paragraph at lines 274--280
 
  []
 
 
 Package multicol Warning: I moved some lines to the next page.
-(multicol)                Footnotes on page 5 might be wrong on input line 210.
+(multicol)                Footnotes on page 7 might be wrong on input line 280.
 
 
-[5]
-Underfull \hbox (badness 10000) in paragraph at lines 213--222
+[7]
+Underfull \hbox (badness 10000) in paragraph at lines 283--292
 
  []
 
-[6] [7]
+[8] [9]
+
+Package caption Warning: The option `hypcap=true' will be ignored for this
+(caption)                particular \caption on input line 348.
+See the caption package documentation for explanation.
+
+[10]
 LaTeX Font Info:    Font shape `OT1/zi4/m/n' will be
-(Font)              scaled to size 10.95pt on input line 287.
- [8]
-Underfull \hbox (badness 7963) in paragraph at lines 288--288
-[]\OT1/cmr/m/n/10.95 Robert White, Jens Krinke, and Ray-
- []
-
-[9] (paper.aux)
+(Font)              scaled to size 10.95pt on input line 388.
+ [11] [12] (paper.aux)
 Package rerunfilecheck Info: File `paper.out' has not changed.
-(rerunfilecheck)             Checksum: D7F2BBAA6DD8BE32986231F8F8A2B1DA;708.
+(rerunfilecheck)             Checksum: 1EDBEB8B1374E9B2CCDD760BCC9F525C;833.
 Package logreq Info: Writing requests to 'paper.run.xml'.
 \openout1 = `paper.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 37297 strings out of 479624
- 786353 string characters out of 2863212
- 1559415 words of memory out of 3000000
- 53755 multiletter control sequences out of 15000+200000
- 416743 words of font info for 78 fonts, out of 3000000 for 9000
+ 37438 strings out of 479624
+ 788436 string characters out of 2863212
+ 1559542 words of memory out of 3000000
+ 53889 multiletter control sequences out of 15000+200000
+ 417044 words of font info for 79 fonts, out of 3000000 for 9000
  1141 hyphenation exceptions out of 8191
- 91i,10n,125p,1850b,1995s stack positions out of 5000i,500n,10000p,200000b,50000s
+ 91i,10n,125p,1850b,1993s stack positions out of 5000i,500n,10000p,200000b,50000s
 {C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/enc/dvips/inconsolata
 /i4-ot1-0.enc}<C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/pub
 lic/inconsolata/Inconsolata-zi4r.pfb><C:/Users/larsv/AppData/Local/Programs/MiK
@@ -1656,9 +1662,9 @@ larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfonts/cm/cmsy10.p
 fb><C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/public/amsfont
 s/cm/cmti10.pfb><C:/Users/larsv/AppData/Local/Programs/MiKTeX 2.9/fonts/type1/p
 ublic/amsfonts/cm/cmti12.pfb>
-Output written on paper.pdf (9 pages, 241171 bytes).
+Output written on paper.pdf (12 pages, 259086 bytes).
 PDF statistics:
- 279 PDF objects out of 1000 (max. 8388607)
- 65 named destinations out of 1000 (max. 500000)
- 261 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 305 PDF objects out of 1000 (max. 8388607)
+ 72 named destinations out of 1000 (max. 500000)
+ 277 words of extra memory for PDF output out of 10000 (max. 10000000)
 
